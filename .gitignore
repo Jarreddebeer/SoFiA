@@ -5,7 +5,6 @@ build/
 *.o
 moc_*
 qrc_*
-Makefile
 SoFiA
 
 # Ignore Python bytecode:
