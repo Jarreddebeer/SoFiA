@@ -103,9 +103,9 @@ def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,m
 
         rms_smoothed = GetRMS(
             cube_smoothed[
-                n0 : cube.shape[0] - n0,
-                n1 : cube.shape[1] - n1,
-                n2 : cube.shape[2] - n2
+                n0 : cube_smoothed.shape[0] - n0,
+                n1 : cube_smoothed.shape[1] - n1,
+                n2 : cube_smoothed.shape[2] - n2
             ],
             rmsMode = rmsMode, zoomx = 1, zoomy = 1, zoomz = 1, verbose = verbose
         )
@@ -116,9 +116,9 @@ def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,m
         mask_threshold_negative = (cube_smoothed <= -threshold * rms_smoothed)
         msk = msk + mask_threshold_positive + mask_threshold_negative
 
-        filename = 'tests/original_refactored/%s-%s-%s-%s' % (kx, ky, kz, kt)
-        np.save(filename, cube_smoothed)
-        del(cube_smoothed)
+        # filename = 'tests/original_refactored/%s-%s-%s-%s' % (kx, ky, kz, kt)
+        # np.save(filename, cube_smoothed)
+        # del(cube_smoothed)
 
         t_finder = time() - t_start
         print 'Filter %s %s %s %s: %.3fs      RMS: %.3fs' % (kx, ky, kz, kt, t_finder, t_rms)
