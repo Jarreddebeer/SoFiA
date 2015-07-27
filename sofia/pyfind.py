@@ -89,7 +89,7 @@ def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,m
         t_rms = time() - t_rms_start
         if found_nan: smoothedcube=np.nan_to_num(smoothedcube)
         msk=msk+(smoothedcube>=threshold*smoothedrms)+(smoothedcube<=-threshold*smoothedrms)
-        filename = 'tests/%s-%s-%s-%s-original' % (kx, ky, kz, kt)
+        filename = 'tests/original/%s-%s-%s-%s' % (kx, ky, kz, kt)
         np.save(filename, smoothedcube)
         del(smoothedcube)
         t_finder = time() - t_start
