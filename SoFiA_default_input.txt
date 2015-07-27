@@ -25,7 +25,7 @@ steps.doOptical                 =       false
 
 # Import module
 
-import.inFile                   =       fits/HI_cube.FITS
+import.inFile                   =       fits/HI_plus_noise.smoothed.FITS
 import.weightsFile              =       
 import.maskFile                 =       
 import.weightsFunction          =       
