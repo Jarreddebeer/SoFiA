@@ -3,7 +3,6 @@
 import numpy as np
 import math as mt
 import scipy.ndimage as nd
-import sys
 from functions import GetRMS
 from time import time
 
@@ -45,54 +44,83 @@ def SortKernels(kernels):
 
 
 def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,maskScaleXY=2.,maskScaleZ=2.,kernelUnit='pixel',edgeMode='constant',rmsMode='negative',verbose=0):
-    # Create binary mask array
-    msk=np.zeros(cube.shape,'bool')
-    found_nan=np.isnan(cube).sum()
-    # Set dn x dn x dn box boundaries where to measure noise (value of dn set in next line)
-    dn=100
-    n0=max(0,int(float(cube.shape[0]-dn)/2))
-    n1=max(0,int(float(cube.shape[1]-dn)/2))
-    n2=max(0,int(float(cube.shape[2]-dn)/2))
+
+    msk = np.zeros(cube.shape, 'bool')
+    found_nan = np.isnan(cube).sum()
+
+    # Set dn x dn x dn box boundaries where to measure noise
+    dn = 100
+    n0 = max(0, int(float(cube.shape[0] - dn) / 2))
+    n1 = max(0, int(float(cube.shape[1] - dn) / 2))
+    n2 = max(0, int(float(cube.shape[2] - dn) / 2))
 
     # Measure noise in original (sub-) cube
     t_rms_initial_start = time()
-    rms=GetRMS(cube[n0:cube.shape[0]-n0,n1:cube.shape[1]-n1,n2:cube.shape[2]-n2],rmsMode=rmsMode,zoomx=1,zoomy=1,zoomz=1,verbose=verbose)
+    rms = GetRMS(
+        cube[
+            n0 : cube.shape[0] - n0,
+            n1 : cube.shape[1] - n1,
+            n2 : cube.shape[2] - n2
+        ], rmsMode=rmsMode,zoomx=1,zoomy=1,zoomz=1,verbose=verbose
+    )
     t_rms_initial = time() - t_rms_initial_start
-
     print 'initial RMS: %.3f' % t_rms_initial
 
-    #rms_sample=GetRMS(cube,rmsMode=rmsMode,zoomx=10,zoomy=10,zoomz=10,verbose=verbose)
-    # Loop over all kernels
-    for jj in kernels:
-    	[kx,ky,kz,kt]=jj
-        t_start = time()
-        if kernelUnit=='world' or kernelUnit=='w':
-        	kx=abs(float(kx)/header['cdelt1'])
-        	ky=abs(float(ky)/header['cdelt2'])
-        	kz=abs(float(kz)/header['cdelt3'])
-        if kt=='b':
-        	if kz!=int(mt.ceil(kz)) and verbose: print '    WARNING: Rounding width of boxcar z kernel to next integer'
-        	kz=int(mt.ceil(kz))
-        sys.stdout.flush()
-        smoothedcube=cube*1.
-        if found_nan: smoothedcube=np.nan_to_num(smoothedcube)
-        smoothedcube[(smoothedcube>0)*msk]=+maskScaleXY*rms
-        smoothedcube[(smoothedcube<0)*msk]=-maskScaleXY*rms
-        if kx+ky: smoothedcube=nd.filters.gaussian_filter(smoothedcube,[0,ky/2.355,kx/2.355],mode=edgeMode)
-        if kz:
-            if kt=='b': smoothedcube=nd.filters.uniform_filter1d(smoothedcube,kz,axis=0,mode=edgeMode)
-            elif kt=='g': smoothedcube=nd.filters.gaussian_filter1d(smoothedcube,kz/2.355,axis=0,mode=edgeMode)
-        if found_nan: smoothedcube[np.isnan(cube)]=np.nan
-        #smoothedrms=GetRMS(smoothedcube,rmsMode=rmsMode,zoomx=10,zoomy=10,zoomz=10,verbose=verbose)/rms_sample*rms
-        t_rms_start = time()
-        smoothedrms=GetRMS(smoothedcube[n0:cube.shape[0]-n0,n1:cube.shape[1]-n1,n2:cube.shape[2]-n2],rmsMode=rmsMode,zoomx=1,zoomy=1,zoomz=1,verbose=verbose)
-        t_rms = time() - t_rms_start
-        if found_nan: smoothedcube=np.nan_to_num(smoothedcube)
-        msk=msk+(smoothedcube>=threshold*smoothedrms)+(smoothedcube<=-threshold*smoothedrms)
-        filename = 'tests/original/%s-%s-%s-%s' % (kx, ky, kz, kt)
-        np.save(filename, smoothedcube)
-        del(smoothedcube)
-        t_finder = time() - t_start
-        print 'Filter %s %s %s %s: %.3fs      RMS: %.3fs'%(kx,ky,kz,kt, t_finder, t_rms)
-    return msk
+    cube_to_smooth = cube * 1.
+    if found_nan: cube_to_smooth = np.nan_to_num(cube_to_smooth)
 
+    for kernel in kernels:
+        [kx, ky, kz, kt] = kernel
+        t_start = time()
+
+        if kernelUnit == 'world' or kernelUnit == 'w':
+            kx = abs(float(kx) / header['cdelt1'])
+            ky = abs(float(ky) / header['cdelt2'])
+            kz = abs(float(kz) / header['cdelt3'])
+
+        if kt == 'b':
+            kz_ceil = int(mt.ceil(kz))
+            if kz != kz_ceil:
+                kz = kz_ceil
+                if verbose: print '    WARNING: Rounding width of boxcar z kernel to next integer'
+
+        cube_smoothed = cube_to_smooth * 1.
+        mask_positive = (cube_smoothed > 0) * msk
+        mask_negative = (cube_smoothed < 0) * msk
+        cube_smoothed[mask_positive] = +maskScaleXY * rms
+        cube_smoothed[mask_negative] = -maskScaleXY * rms
+
+        if kx + ky:
+            cube_smoothed = nd.filters.gaussian_filter(cube_smoothed, [0, ky / 2.355, kx / 2.355], mode = edgeMode)
+
+        if kz:
+            if kt == 'b':
+                cube_smoothed = nd.filters.uniform_filter1d(cube_smoothed, kz, axis = 0, mode = edgeMode)
+            elif kt == 'g':
+                cube_smoothed = nd.filters.gaussian_filter1d(cube_smoothed, kz / 2.355, axis = 0, mode = edgeMode)
+
+        t_rms_start = time()
+
+        rms_smoothed = GetRMS(
+            cube_smoothed[
+                n0 : cube.shape[0] - n0,
+                n1 : cube.shape[1] - n1,
+                n2 : cube.shape[2] - n2
+            ],
+            rmsMode = rmsMode, zoomx = 1, zoomy = 1, zoomz = 1, verbose = verbose
+        )
+
+        t_rms = time() - t_rms_start
+
+        mask_threshold_positive = (cube_smoothed >=  threshold * rms_smoothed)
+        mask_threshold_negative = (cube_smoothed <= -threshold * rms_smoothed)
+        msk = msk + mask_threshold_positive + mask_threshold_negative
+
+        filename = 'tests/original_refactored/%s-%s-%s-%s' % (kx, ky, kz, kt)
+        np.save(filename, cube_smoothed)
+        del(cube_smoothed)
+
+        t_finder = time() - t_start
+        print 'Filter %s %s %s %s: %.3fs      RMS: %.3fs' % (kx, ky, kz, kt, t_finder, t_rms)
+
+    return msk
