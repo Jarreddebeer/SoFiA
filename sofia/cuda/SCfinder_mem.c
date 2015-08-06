@@ -8,13 +8,14 @@
 // gcc -shared -o libhello.so -fPIC hello.c
 
 void convolve_1d(float *in_cube, float *out_cube, float *weights, int cube_idx, size_t lw, int offset_multiplier, size_t min_clip, size_t max_clip) {
-    int sum = 0;
+    int sum = weights[lw] * in_cube[cube_idx];
     for (size_t i = 1; i < lw + 1; i++) {
         float weight = weights[lw + i];
         size_t cube_offset = i * offset_multiplier;
-        size_t idx = MAX(min_clip, MIN( cube_idx + cube_offset, max_clip - 1 ));
-        sum += weight * in_cube[idx];
-        sum += weight * in_cube[idx];
+        size_t idx_lo = MAX(min_clip,     MIN( cube_idx + cube_offset, max_clip - 1 ));
+        size_t idx_hi = MIN(max_clip - 1, MAX( cube_idx - cube_offset, min_clip     ));
+        sum += weight * in_cube[idx_lo];
+        sum += weight * in_cube[idx_hi];
     }
     out_cube[cube_idx] = sum;
 }
@@ -22,7 +23,7 @@ void convolve_1d(float *in_cube, float *out_cube, float *weights, int cube_idx, 
 
 void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_x, size_t cube_y, size_t cube_z, size_t ks, int switch_xy) {
 
-    int truncate = 4;
+    int truncate = 1;
 
     float sd = ((float) ks) / 2.355;
     int lw = (int) (truncate * sd + 0.5);
@@ -43,6 +44,15 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_x, size_t c
     for (size_t i = 0; i < 2 * lw + 1; i++) {
         weights[i] /= sum;
     }
+
+    printf("sd: %f\n", sd);
+    printf("lw: %d\n", lw);
+    printf("sum: %f\n", sum);
+    printf("weights: ");
+    for (size_t i = 0; i < 2 * lw + 1; i++) {
+        printf("%f ", weights[i]);
+    }
+    printf("\n");
 
     // correlate weights with the cube
     if (!switch_xy) {
@@ -79,7 +89,7 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_x, size_t c
 void gaussian_filter(float *in_cube, float *out_cube, size_t cube_x, size_t cube_y, size_t cube_z, size_t kx, size_t ky, size_t kz) {
     // filter x, then y
     gaussian_filter_1d(in_cube, out_cube, cube_x, cube_y, cube_z, kx, 0);
-    gaussian_filter_1d(in_cube, out_cube,  cube_y, cube_x, cube_z, ky, 1);
+    // gaussian_filter_1d(in_cube, out_cube,  cube_y, cube_x, cube_z, ky, 1);
 }
 
 void copy3d(float *to, float *from, size_t cube_x, size_t cube_y, size_t cube_z) {
