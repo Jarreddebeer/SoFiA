@@ -2,9 +2,6 @@
 #include <stdio.h>
 #include <math.h>
 
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-
 // gcc -shared -o libhello.so -fPIC hello.c
 
 void convolve_1d(float *in_cube, float *out_cube, float *weights, int cube_idx, size_t lw, int offset_multiplier, int min_clip, int max_clip) {
@@ -16,8 +13,19 @@ void convolve_1d(float *in_cube, float *out_cube, float *weights, int cube_idx, 
     for (size_t i = 1; i < lw + 1; i++) {
         float weight = weights[lw + i];
         int cube_offset = i * offset_multiplier;
-        int idx_hi = MAX(min_clip,     MIN( cube_idx + cube_offset, max_clip - 1 ));
-        int idx_lo = MIN( (max_clip) - 1, MAX( cube_idx - cube_offset, min_clip     ));
+
+        int idx_hi = cube_idx + cube_offset;
+        if (idx_hi >= max_clip) {
+            int delta = idx_hi - (max_clip - 1);
+            idx_hi = max_clip - delta;
+        }
+
+        int idx_lo = cube_idx - cube_offset;
+        if (idx_lo < min_clip) {
+            int delta = (min_clip - 1) - idx_lo;
+            idx_lo = min_clip + delta;
+        }
+
         printf("%f (%d)", in_cube[idx_lo], idx_lo);
         printf("%f (%d)", in_cube[idx_hi], idx_hi);
         sum += weight * in_cube[idx_lo];

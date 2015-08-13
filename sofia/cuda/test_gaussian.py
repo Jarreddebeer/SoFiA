@@ -13,6 +13,9 @@ ffi.cdef(SCfinder_mem_header.read())
 
 C = ffi.dlopen('./SCfinder_mem.so')
 
+# kernels = [[ 0, 0, 0,98],[ 0, 0, 3,98],[ 0, 0, 7,98],[ 0, 0, 15,98],[ 3, 3, 0,98],[ 3, 3, 3,98],[ 3, 3, 7,98],[ 3, 3, 15,98],[ 6, 6, 0,98],[ 6, 6, 3,98],[ 6, 6, 7,98],[ 6, 6, 15,98]]
+kernels = [[ 4, 4, 0,98]]
+
 def sumsq(a, b):
     return math.sqrt(((a - b)**2).sum())
 
@@ -22,7 +25,6 @@ def C_SCfinder_mem(input, kernel):
     input_ptr = ffi.cast("float*", input.ctypes.data)
     C.SCfinder_mem(input_ptr, input.shape[0], input.shape[1], input.shape[2], kernel_ptr, 1)
 
-
 class TestGaussian:
 
     '''
@@ -31,7 +33,6 @@ class TestGaussian:
                              [2, 4, 6]], numpy.float32)
         output = ndimage.gaussian_filter(input, 0)
         assert_array_almost_equal(output, input)
-    '''
 
     def test_array_3x1_a(self):
         input = numpy.array([
@@ -41,24 +42,20 @@ class TestGaussian:
         output = ndimage.gaussian_filter(input, 3 / 2.355, truncate=1)
         C_SCfinder_mem(input, [3, 3, 3, 98])
 
-        print '------'
-        print input
-        print '------'
-        print output
-        print '------'
-
         assert_array_almost_equal(output, input)
 
+    '''
     def test_array_3x2_a(self):
         input = numpy.array([
-            [[1, 2, 3],
-            [2, 4, 6]]
+            [[1, 2, 3, 4, 5]]
+
         ], numpy.float32)
 
-        output = ndimage.gaussian_filter(input, 1 / 2.355, truncate=1)
-        C_SCfinder_mem(input, [1, 1, 1, 98])
-
-        assert_array_almost_equal(output, input)
+        for kernel in kernels:
+            input_copy = numpy.array(input)
+            output = ndimage.gaussian_filter(input_copy, kernel[0] / 2.355, truncate=1)
+            C_SCfinder_mem(input_copy, kernel)
+            assert_array_almost_equal(output, input_copy)
 
     '''
     def test_array_2x3_b(self):
