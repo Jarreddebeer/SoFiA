@@ -13,8 +13,6 @@ ffi.cdef(SCfinder_mem_header.read())
 
 C = ffi.dlopen('./SCfinder_mem.so')
 
-# kernels = [[ 0, 0, 0,98],[ 0, 0, 3,98],[ 0, 0, 7,98],[ 0, 0, 15,98],[ 3, 3, 0,98],[ 3, 3, 3,98],[ 3, 3, 7,98],[ 3, 3, 15,98],[ 6, 6, 0,98],[ 6, 6, 3,98],[ 6, 6, 7,98],[ 6, 6, 15,98]]
-kernels = [[ 4, 4, 0,98]]
 
 def sumsq(a, b):
     return math.sqrt(((a - b)**2).sum())
@@ -27,99 +25,38 @@ def C_SCfinder_mem(input, kernel):
 
 class TestGaussian:
 
-    '''
-    def test_gauss01(self):
-        input = numpy.array([[1, 2, 3],
-                             [2, 4, 6]], numpy.float32)
-        output = ndimage.gaussian_filter(input, 0)
-        assert_array_almost_equal(output, input)
+    def test_array_3x1(self):
 
-    def test_array_3x1_a(self):
+        kernels = [[0, 0, 0, 98], [1, 0, 0, 98], [0, 1, 0, 98], [1, 1, 0, 98], [2, 1, 0, 98], [1, 2, 0, 98], [2, 2, 0, 98], [3, 3, 0, 98]]
+
         input = numpy.array([
-            [[1, 2, 3]]
-        ], numpy.float32)
-
-        output = ndimage.gaussian_filter(input, 3 / 2.355, truncate=1)
-        C_SCfinder_mem(input, [3, 3, 3, 98])
-
-        assert_array_almost_equal(output, input)
-
-    '''
-    def test_array_3x2_a(self):
-        input = numpy.array([
-            [[1, 2, 3, 4, 5]]
-
+            [[1, 2, 3],
+             [4, 5, 6]]
         ], numpy.float32)
 
         for kernel in kernels:
             input_copy = numpy.array(input)
-            output = ndimage.gaussian_filter(input_copy, kernel[0] / 2.355, truncate=1)
+            kx = kernel[0] / 2.355
+            ky = kernel[1] / 2.355
+            kz = 0
+            output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], truncate=1)
             C_SCfinder_mem(input_copy, kernel)
             assert_array_almost_equal(output, input_copy)
 
-    '''
-    def test_array_2x3_b(self):
-        input = numpy.array([
-            [[1, 2, 3],
-            [2, 4, 6]]
-        ], numpy.float32)
 
-        output = ndimage.gaussian_filter(input, 3 / 2.355, truncate=1)
-        C_SCfinder_mem(input, [3, 3, 3, 98])
+    def test_array_nxn(self):
 
-        print '------'
-        print input
-        print '------'
-        print output
-        print '------'
+        kernels = [[ 0, 0, 0,98],[ 0, 0, 3,98],[ 0, 0, 7,98],[ 0, 0, 15,98],[ 3, 3, 0,98],[ 3, 3, 3,98],[ 3, 3, 7,98],[ 3, 3, 15,98],[ 6, 6, 0,98],[ 6, 6, 3,98],[ 6, 6, 7,98],[ 6, 6, 15,98]]
 
-        assert_array_almost_equal(output, input)
+        input = numpy.arange(1 * 50 * 50).astype(numpy.float32)
+        input.shape = (1, 50, 50)
 
-    '''
+        for kernel in kernels:
+            input_copy = numpy.array(input)
+            kx = kernel[0] / 2.355
+            ky = kernel[1] / 2.355
+            kz = 0
+            output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], truncate=1)
+            C_SCfinder_mem(input_copy, kernel)
+            assert_array_almost_equal(output, input_copy, decimal=3)
 
-    '''
-    def test_gauss03(self):
-        # single precision data"
-        input = numpy.arange(100 * 100).astype(numpy.float32)
-        input.shape = (100, 100)
-        output = ndimage.gaussian_filter(input, [1.0, 1.0])
-
-        assert_equal(input.dtype, output.dtype)
-        assert_equal(input.shape, output.shape)
-
-        # input.sum() is 49995000.0.  With single precision floats, we can't
-        # expect more than 8 digits of accuracy, so use decimal=0 in this test.
-        assert_almost_equal(output.sum(dtype='d'), input.sum(dtype='d'), decimal=0)
-        assert_(sumsq(input, output) > 1.0)
-
-    def test_gauss04(self):
-        input = numpy.arange(100 * 100).astype(numpy.float32)
-        input.shape = (100, 100)
-        otype = numpy.float64
-        output = ndimage.gaussian_filter(input, [1.0, 1.0],
-                                                            output=otype)
-        assert_equal(output.dtype.type, numpy.float64)
-        assert_equal(input.shape, output.shape)
-        assert_(sumsq(input, output) > 1.0)
-
-    def test_gauss05(self):
-        input = numpy.arange(100 * 100).astype(numpy.float32)
-        input.shape = (100, 100)
-        otype = numpy.float64
-        output = ndimage.gaussian_filter(input, [1.0, 1.0],
-                                                 order=1, output=otype)
-        assert_equal(output.dtype.type, numpy.float64)
-        assert_equal(input.shape, output.shape)
-        assert_(sumsq(input, output) > 1.0)
-
-    def test_gauss06(self):
-        input = numpy.arange(100 * 100).astype(numpy.float32)
-        input.shape = (100, 100)
-        otype = numpy.float64
-        output1 = ndimage.gaussian_filter(input, [1.0, 1.0],
-                                                            output=otype)
-        output2 = ndimage.gaussian_filter(input, 1.0,
-                                                            output=otype)
-        assert_array_almost_equal(output1, output2)
-
-    '''
