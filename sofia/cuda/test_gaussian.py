@@ -17,11 +17,9 @@ C = ffi.dlopen('./SCfinder_mem.so')
 def sumsq(a, b):
     return math.sqrt(((a - b)**2).sum())
 
-def C_SCfinder_mem(input, kernel):
-    kernel = np.array(kernel, dtype='int32')
-    kernel_ptr = ffi.cast("int*", kernel.ctypes.data)
+def C_gaussian_filter(input, kernel):
     input_ptr = ffi.cast("float*", input.ctypes.data)
-    C.SCfinder_mem(input_ptr, input.shape[0], input.shape[1], input.shape[2], kernel_ptr, 1)
+    C.gaussian_filter(input_ptr, input.shape[0], input.shape[1], input.shape[2], kernel[2], kernel[1], kernel[0])
 
 class TestGaussian:
 
@@ -42,7 +40,7 @@ class TestGaussian:
             ky = kernel[1] / 2.355
             kz = 0
             output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], mode='constant', truncate=4)
-            C_SCfinder_mem(input_copy, kernel)
+            C_gaussian_filter(input_copy, kernel)
             assert_array_almost_equal(output, input_copy, decimal=3)
 
     def test_array_nxn(self):
@@ -58,6 +56,5 @@ class TestGaussian:
             ky = kernel[1] / 2.355
             kz = 0
             output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], mode='constant', truncate=4)
-            C_SCfinder_mem(input_copy, kernel)
+            C_gaussian_filter(input_copy, kernel)
             assert_array_almost_equal(output, input_copy, decimal=3)
-
