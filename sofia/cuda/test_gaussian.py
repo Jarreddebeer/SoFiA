@@ -27,11 +27,13 @@ class TestGaussian:
 
     def test_array_3x1(self):
 
-        kernels = [[0, 0, 0, 98], [1, 0, 0, 98], [0, 1, 0, 98], [1, 1, 0, 98], [2, 1, 0, 98], [1, 2, 0, 98], [2, 2, 0, 98], [3, 3, 0, 98]]
+        kernels = [[0, 0, 0, 98], [1, 0, 0, 98], [0, 1, 0, 98], [1, 1, 0, 98], [2, 1, 0, 98], [1, 2, 0, 98], [2, 2, 0, 98]]
 
         input = numpy.array([
-            [[1, 2, 3],
-             [4, 5, 6]]
+            [[1, 2, 3, 4],
+             [4, 5, 6, 5],
+             [7, 8, 9, 6],
+             [2, 3, 4, 5]]
         ], numpy.float32)
 
         for kernel in kernels:
@@ -39,10 +41,9 @@ class TestGaussian:
             kx = kernel[0] / 2.355
             ky = kernel[1] / 2.355
             kz = 0
-            output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], truncate=1)
+            output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], mode='constant', truncate=4)
             C_SCfinder_mem(input_copy, kernel)
-            assert_array_almost_equal(output, input_copy)
-
+            assert_array_almost_equal(output, input_copy, decimal=3)
 
     def test_array_nxn(self):
 
@@ -56,7 +57,7 @@ class TestGaussian:
             kx = kernel[0] / 2.355
             ky = kernel[1] / 2.355
             kz = 0
-            output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], truncate=1)
+            output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], mode='constant', truncate=4)
             C_SCfinder_mem(input_copy, kernel)
             assert_array_almost_equal(output, input_copy, decimal=3)
 

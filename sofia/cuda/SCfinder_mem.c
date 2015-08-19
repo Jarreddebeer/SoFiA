@@ -56,8 +56,10 @@ void convolve_1d(float *in_cube, float *out_cube, float *weights, int cube_idx, 
 
 void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t ks, int switch_xy) {
 
+    int truncate = 4;
+
     float sd = ((float) ks) / 2.355;
-    int lw = (int) (sd + 0.5);
+    int lw = (int) (sd * truncate + 0.5);
 
     float* weights = (float *) malloc(sizeof(float) * (2 * lw + 1));
     weights[lw] = 1.0;
@@ -135,6 +137,41 @@ void gaussian_filter(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x
     free(out_cube);
 }
 
+void uniform_filter_1d(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz) {
+
+    float* out_cube = (float *) malloc(sizeof(float) * cube_x * cube_y * cube_z);
+
+    int tmp = 0.0;
+
+    for (size_t x = 0; x < cube_x; x++) {
+        for (size_t y = 0; y < cube_y; y++) {
+
+            // window reflected average
+            for (size_t z = 0; z < kz; z++) {
+                size_t cube_idx = (z * cube_y * cube_x) + (y * cube_x) + x;
+                tmp += in_cube[cube_idx];
+            }
+            tmp /= (float) kz;
+
+            for (size_t z = 0; z < cube_z; z++) {
+                size_t cube_idx = (z * cube_y * cube_x) + (y * cube_x) + x;
+                size_t lo_idx;
+                // handle mirrored case
+                if (z < kz) {
+                    lo_idx = ((kz - 1 - z) * cube_y * cube_x) + (y * cube_x) + x;
+                } else {
+                    lo_idx = cube_idx - (kz * cube_y * cube_x);
+                }
+                tmp += (in_cube[cube_idx] - in_cube[lo_idx]) / (float) kz;
+                out_cube[cube_idx] = tmp;
+            }
+        }
+    }
+
+    copy3d(in_cube, out_cube, cube_z, cube_y, cube_x);
+    free(out_cube);
+}
+
 void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernels, size_t kern_size) {
 
     size_t k;
@@ -146,10 +183,8 @@ void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, i
         int kz = kernels[k_idx + 2];
         int kt = kernels[k_idx + 3];
 
-        // gaussian filter in x&y
-        // uniform filter in z
-
         gaussian_filter(in_cube, cube_z, cube_y, cube_x, kz, ky, kx);
+        uniform_filter_1d(in_cube, cube_z, cube_y, cube_x, kz);
 
     }
 
