@@ -169,7 +169,7 @@ void uniform_filter_1d(float *in_cube, size_t cube_z, size_t cube_y, size_t cube
 
     int size1 = kz / 2;
     int size2 = kz - size1 - 1;
-    if (size1 == 0 && size2 == 0) {
+    if (size1 == 0 && size2 <= 0) {
         return;
     }
 
@@ -219,13 +219,17 @@ void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, i
     for (k = 0; k < kern_size; k++) {
 
         size_t k_idx = k * 4;
-        int kx = kernels[k_idx + 0];
-        int ky = kernels[k_idx + 1];
-        int kz = kernels[k_idx + 2];
-        int kt = kernels[k_idx + 3];
+        size_t kx = kernels[k_idx + 0];
+        size_t ky = kernels[k_idx + 1];
+        size_t kz = kernels[k_idx + 2];
+        size_t kt = kernels[k_idx + 3];
 
-        gaussian_filter(in_cube, cube_z, cube_y, cube_x, kz, ky, kx);
-        uniform_filter_1d(in_cube, cube_z, cube_y, cube_x, kz);
+        printf("kz: %d, ky: %d, kx: %d\n", (int) kz, (int) ky, (int) kx);
+
+        gaussian_filter(in_cube, cube_z, cube_y, cube_x, 0, ky, kx);
+        if (kz > 0) {
+            uniform_filter_1d(in_cube, cube_z, cube_y, cube_x, kz);
+        }
 
     }
 

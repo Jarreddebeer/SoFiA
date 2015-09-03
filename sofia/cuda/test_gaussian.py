@@ -1,9 +1,8 @@
 import numpy
-from numpy.testing import (assert_equal, assert_array_almost_equal)
+from numpy.testing import (assert_array_almost_equal)
 import scipy.ndimage as ndimage
 import math
 from cffi import FFI
-import numpy as np
 
 
 ffi = FFI()
@@ -20,6 +19,12 @@ def sumsq(a, b):
 def C_gaussian_filter(input, kernel):
     input_ptr = ffi.cast("float*", input.ctypes.data)
     C.gaussian_filter(input_ptr, input.shape[0], input.shape[1], input.shape[2], kernel[2], kernel[1], kernel[0])
+
+def C_SCfinder_mem(cube, kernels):
+    kernels = numpy.array(kernels, dtype='int32')
+    cube_ptr = ffi.cast("float*", cube.ctypes.data)
+    kernel_ptr = ffi.cast("int*", kernels.ctypes.data)
+    C.SCfinder_mem(cube_ptr, cube.shape[0], cube.shape[1], cube.shape[2], kernel_ptr, len(kernels))
 
 class TestGaussian:
 

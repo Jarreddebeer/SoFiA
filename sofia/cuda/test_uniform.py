@@ -1,9 +1,7 @@
 import numpy
 from numpy.testing import (assert_array_almost_equal)
 import scipy.ndimage as ndimage
-import math
 from cffi import FFI
-import numpy as np
 
 
 ffi = FFI()
@@ -30,12 +28,12 @@ class TestUniform:
 
         for kernel in kernels:
             input_copy = numpy.array(input)
+
             kz = kernel[2]
             output = ndimage.uniform_filter1d(input_copy, kz, axis=0, mode='constant')
 
             input_ptr = ffi.cast("float*", input_copy.ctypes.data)
             C.uniform_filter_1d(input_ptr, input.shape[0], input.shape[1], input.shape[2], kz)
-
 
             assert_array_almost_equal(output, input_copy, decimal=3)
 
@@ -63,4 +61,3 @@ class TestUniform:
             print('===========')
 
             assert_array_almost_equal(output, input_copy, decimal=2)
-
