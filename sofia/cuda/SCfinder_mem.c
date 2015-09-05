@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -118,6 +119,8 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t c
     if (!switch_xy) {
         // printf("cube_x: %d\n", (int)cube_x);
 
+        clock_t start = clock();
+
         for (size_t z = 0; z < cube_z; z++) {
             for (size_t y = 0; y < cube_y; y++) {
                 for (size_t x = 0; x < cube_x; x++) {
@@ -129,9 +132,14 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t c
             }
         }
 
+        clock_t end = clock();
+        printf("contiguous took: %d\n", (int) (end - start));
+
     } else {
         // printf("cube_x: %d\n", (int)cube_x);
         // printf("cube_y: %d\n", (int)cube_y);
+
+        clock_t start = clock();
 
         for (size_t z = 0; z < cube_z; z++) {
             for (size_t x = 0; x < cube_x; x++) {
@@ -144,28 +152,30 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t c
             }
         }
 
+        clock_t end = clock();
+        printf("non-contiguous took: %d\n", (int) (end - start));
+
     }
 
     free(weights);
 }
 
-void gaussian_filter(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz, size_t ky, size_t kx) {
+void gaussian_filter(float *in_cube, float *out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz, size_t ky, size_t kx) {
 
-    float* out_cube = (float *) malloc(sizeof(float) * cube_x * cube_y * cube_z);
-
+    // we recycle the cubes so as to avoid manually copying data across.
+    // here in_cube ->(gaussianY)-> out_cube ->(gaussianX)-> in_cube
     if (ky > 0) {
         gaussian_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, ky, 1);
-        copy3d(in_cube, out_cube, cube_z, cube_y, cube_x);
+        // copy3d(in_cube, out_cube, cube_z, cube_y, cube_x);
     }
     if (kx > 0) {
-        gaussian_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, kx, 0);
-        copy3d(in_cube, out_cube, cube_z, cube_y, cube_x);
+        gaussian_filter_1d(out_cube, in_cube, cube_z, cube_y, cube_x, kx, 0);
+        // copy3d(in_cube, out_cube, cube_z, cube_y, cube_x);
     }
 
-    free(out_cube);
 }
 
-void uniform_filter_1d(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz) {
+void uniform_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz) {
 
     int size1 = kz / 2;
     int size2 = kz - size1 - 1;
@@ -174,7 +184,6 @@ void uniform_filter_1d(float *in_cube, size_t cube_z, size_t cube_y, size_t cube
     }
 
     size_t stride = cube_x * cube_y;
-    float* out_cube = (float *) malloc(sizeof(float) * cube_z * stride);
     float tmp;
 
     for (size_t x = 0; x < cube_x; x++) {
@@ -182,9 +191,11 @@ void uniform_filter_1d(float *in_cube, size_t cube_z, size_t cube_y, size_t cube
 
             tmp = 0.0;
             int start_idx = (y * cube_x) + x;
+            /*
             if (x == 0 && y == 1) {
                 printf("start_idx: %d\n", (int)start_idx);
             }
+            */
             int end_idx = start_idx + cube_z * stride;
             // initialize tmp
             for (int i = start_idx; i <= start_idx + (size2 * stride); i += stride) {
@@ -198,9 +209,11 @@ void uniform_filter_1d(float *in_cube, size_t cube_z, size_t cube_y, size_t cube
                 int hi_idx = z + size2 * stride;
                 float lo_val = (lo_idx < start_idx) ? 0.0 : in_cube[lo_idx];
                 float hi_val = (hi_idx >= end_idx)  ? 0.0 : in_cube[hi_idx];
+                /*
                 if (x == 0 && y == 1) {
                     printf("isLower: %d, lo: %f, lo_idx: %d, hi: %f, hi_idx: %d\n", lo_idx < start_idx, lo_val, (int)lo_idx, hi_val, (int)hi_idx);
                 }
+                */
                 tmp += hi_val / (float) kz;
                 out_cube[z] = tmp;
                 // remove the lower value for the next iteration
@@ -209,14 +222,23 @@ void uniform_filter_1d(float *in_cube, size_t cube_z, size_t cube_y, size_t cube
         }
     }
 
-    copy3d(in_cube, out_cube, cube_z, cube_y, cube_x);
-    free(out_cube);
 }
 
 void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernels, size_t kern_size) {
 
-    size_t k;
-    for (k = 0; k < kern_size; k++) {
+    float* out_cube = (float *) malloc(sizeof(float) * cube_x * cube_y * cube_z);
+
+    int pos = 0;
+    for (int i = 0; i < cube_z; i++) {
+        for (int j = 0; j < cube_y; j++) {
+            for (int k = 0; k < cube_z; k++) {
+                in_cube[pos] = -0.001;
+                pos++;
+            }
+        }
+    }
+
+    for (size_t k = 0; k < kern_size; k++) {
 
         size_t k_idx = k * 4;
         size_t kx = kernels[k_idx + 0];
@@ -224,13 +246,20 @@ void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, i
         size_t kz = kernels[k_idx + 2];
         size_t kt = kernels[k_idx + 3];
 
-        printf("kz: %d, ky: %d, kx: %d\n", (int) kz, (int) ky, (int) kx);
-
-        gaussian_filter(in_cube, cube_z, cube_y, cube_x, 0, ky, kx);
-        if (kz > 0) {
-            uniform_filter_1d(in_cube, cube_z, cube_y, cube_x, kz);
+        if (kx + ky > 0) {
+            clock_t start = clock();
+            gaussian_filter(in_cube, out_cube, cube_z, cube_y, cube_x, 0, ky, kx);
+            clock_t end = clock();
+            printf("time spent on gaussian filter: %d\n", ((int) end - (int) start));
         }
-
+        if (kz > 0) {
+            clock_t start = clock();
+            uniform_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, kz);
+            clock_t end = clock();
+            printf("time spent on uniform filter: %d\n", ((int) end - (int) start));
+        }
     }
+
+    free(out_cube);
 
 }

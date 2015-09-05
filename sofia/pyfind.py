@@ -6,6 +6,17 @@ import scipy.ndimage as nd
 from functions import GetRMS
 from time import time
 
+####################
+from cffi import FFI
+
+ffi = FFI()
+
+SCfinder_mem_header = open('./sofia/cuda/SCfinder_mem.h', 'r')
+ffi.cdef(SCfinder_mem_header.read())
+
+C = ffi.dlopen('./sofia/cuda/SCfinder_mem.so')
+####################
+
 def GaussianNoise(F,N0,s0):
     return N0*np.exp(-F**2/2/s0**2)
 
@@ -42,6 +53,11 @@ def SortKernels(kernels):
 				velfshape[-1].append(ii[3])
 	return uniquesky,velsmooth,velfshape
 
+def C_SCfinder_mem(cube, kernels):
+    kernels = np.array(kernels, dtype='int32')
+    cube_ptr = ffi.cast("float*", cube.ctypes.data)
+    kernel_ptr = ffi.cast("int*", kernels.ctypes.data)
+    C.SCfinder_mem(cube_ptr, cube.shape[0], cube.shape[1], cube.shape[2], kernel_ptr, len(kernels))
 
 def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,maskScaleXY=2.,maskScaleZ=2.,kernelUnit='pixel',edgeMode='constant',rmsMode='negative',verbose=0):
 
@@ -69,6 +85,16 @@ def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,m
     cube_to_smooth = cube * 1.
     if found_nan: cube_to_smooth = np.nan_to_num(cube_to_smooth)
 
+    print("cube size: ", cube.shape[0] * cube.shape[1] * cube.shape[2])
+
+    for kernel in kernels:
+        kernel[3] = ord(kernel[3])
+    t_start = time()
+    C_SCfinder_mem(cube_to_smooth, kernels)
+    t_end = time()
+    print("total time: ", t_end - t_start)
+
+    '''
     for kernel in kernels:
         [kx, ky, kz, kt] = kernel
         t_start = time()
@@ -91,11 +117,17 @@ def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,m
         cube_smoothed[mask_negative] = -maskScaleXY * rms
 
         if kx + ky:
+            start = time()
             cube_smoothed = nd.filters.gaussian_filter(cube_smoothed, [0, ky / 2.355, kx / 2.355], mode = edgeMode)
+            end = time()
+            print("python gaussian filter took:", end - start)
 
         if kz:
             if kt == 'b':
+                start = time()
                 cube_smoothed = nd.filters.uniform_filter1d(cube_smoothed, kz, axis = 0, mode = edgeMode)
+                end = time()
+                print("python uniform filter took:", end - start)
             elif kt == 'g':
                 cube_smoothed = nd.filters.gaussian_filter1d(cube_smoothed, kz / 2.355, axis = 0, mode = edgeMode)
 
@@ -122,5 +154,6 @@ def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,m
 
         t_finder = time() - t_start
         print 'Filter %s %s %s %s: %.3fs      RMS: %.3fs' % (kx, ky, kz, kt, t_finder, t_rms)
+    '''
 
     return msk
