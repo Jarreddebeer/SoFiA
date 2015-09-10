@@ -115,6 +115,8 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t c
         printf("\n");
     }
 
+    size_t stride = cube_x * cube_y;
+
     // correlate weights with the cube
     if (!switch_xy) {
         // printf("cube_x: %d\n", (int)cube_x);
@@ -124,7 +126,7 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t c
         for (size_t z = 0; z < cube_z; z++) {
             for (size_t y = 0; y < cube_y; y++) {
                 for (size_t x = 0; x < cube_x; x++) {
-                    size_t cube_idx = (z * cube_y * cube_x) + (y * cube_x) + x;
+                    size_t cube_idx = (z * stride) + (y * cube_x) + x;
                     size_t max_clip = cube_idx - x + cube_x;
                     size_t min_clip = max_clip - cube_x;
                     convolve_1d(in_cube, out_cube, weights, cube_idx, lw, 1, min_clip, max_clip);
@@ -144,9 +146,9 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t c
         for (size_t z = 0; z < cube_z; z++) {
             for (size_t x = 0; x < cube_x; x++) {
                 for (size_t y = 0; y < cube_y; y++) {
-                    size_t cube_idx = (z * cube_y * cube_x) + (y * cube_x) + x;
-                    size_t max_clip = cube_idx - (y * cube_x) + (cube_x * cube_y);
-                    size_t min_clip = max_clip - (cube_x * cube_y);
+                    size_t cube_idx = (z * stride) + (y * cube_x) + x;
+                    size_t max_clip = cube_idx - (y * cube_x) + stride;
+                    size_t min_clip = max_clip - stride;
                     convolve_1d(in_cube, out_cube, weights, cube_idx, lw, cube_x, min_clip, max_clip);
                 }
             }
@@ -224,12 +226,44 @@ void uniform_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t cu
 
 }
 
-void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernels, size_t kern_size) {
+// void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernels, size_t kern_size) {
+void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernel) {
 
     float* out_cube = (float *) malloc(sizeof(float) * cube_x * cube_y * cube_z);
 
+    size_t kx = kernel[0];
+    size_t ky = kernel[1];
+    size_t kz = kernel[2];
+    size_t kt = kernel[3];
+
+    if (kx + ky > 0) {
+        clock_t start = clock();
+        gaussian_filter(in_cube, out_cube, cube_z, cube_y, cube_x, 0, ky, kx);
+        clock_t end = clock();
+        printf("time spent on gaussian filter: %d\n", ((int) end - (int) start));
+    }
+    if (kz > 0) {
+        clock_t start = clock();
+        uniform_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, kz);
+        clock_t end = clock();
+        printf("time spent on uniform filter: %d\n", ((int) end - (int) start));
+    }
+
+    free(out_cube);
+
+}
+
+/*
+int main() {
+
+    int cube_x = 360;
+    int cube_y = 360;
+    int cube_z = 660;
+    float* in_cube = (float *) malloc(sizeof(float) * cube_x * cube_y * cube_z);
+    int* kernels = (int *) malloc(sizeof(int));
+
     int pos = 0;
-    for (int i = 0; i < cube_z; i++) {
+    for (int i = 0; i < cube_x; i++) {
         for (int j = 0; j < cube_y; j++) {
             for (int k = 0; k < cube_z; k++) {
                 in_cube[pos] = -0.001;
@@ -238,28 +272,7 @@ void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, i
         }
     }
 
-    for (size_t k = 0; k < kern_size; k++) {
-
-        size_t k_idx = k * 4;
-        size_t kx = kernels[k_idx + 0];
-        size_t ky = kernels[k_idx + 1];
-        size_t kz = kernels[k_idx + 2];
-        size_t kt = kernels[k_idx + 3];
-
-        if (kx + ky > 0) {
-            clock_t start = clock();
-            gaussian_filter(in_cube, out_cube, cube_z, cube_y, cube_x, 0, ky, kx);
-            clock_t end = clock();
-            printf("time spent on gaussian filter: %d\n", ((int) end - (int) start));
-        }
-        if (kz > 0) {
-            clock_t start = clock();
-            uniform_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, kz);
-            clock_t end = clock();
-            printf("time spent on uniform filter: %d\n", ((int) end - (int) start));
-        }
-    }
-
-    free(out_cube);
+    SCfinder_mem(in_cube, cube_z, cube_y, cube_x, kernels, 1);
 
 }
+*/
