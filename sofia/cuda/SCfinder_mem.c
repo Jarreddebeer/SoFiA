@@ -1,8 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <time.h>
+#include <sys/time.h>
 #include <omp.h>
+
+double get_time(struct timeval tv1, struct timeval tv2) {
+    double delta = ((tv2.tv_sec - tv1.tv_sec) * 1000000u + tv2.tv_usec - tv1.tv_usec) / 1.e6;
+    return delta;
+}
 
 void copy3d(float *to, float *from, size_t cube_z, size_t cube_y, size_t cube_x) {
     #pragma omp parallel for
@@ -69,10 +74,12 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t c
 
     size_t stride = cube_x * cube_y;
 
+    struct timeval tv1, tv2;
     // correlate weights with the cube
     if (!switch_xy) {
 
-        clock_t start = clock();
+        // clock_t start = clock();
+        gettimeofday(&tv1, NULL);
 
         #pragma omp parallel for
         for (size_t z = 0; z < cube_z; z++) {
@@ -86,12 +93,13 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t c
             }
         }
 
-        clock_t end = clock();
-        printf("contiguous took: %d\n", (int) (end - start));
+        gettimeofday(&tv2, NULL);
+        printf("contiguous took: %f\n", get_time(tv1, tv2));
 
     } else {
 
-        clock_t start = clock();
+        // clock_t start = clock();
+        gettimeofday(&tv1, NULL);
 
         #pragma omp parallel for
         for (size_t z = 0; z < cube_z; z++) {
@@ -105,13 +113,14 @@ void gaussian_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t c
             }
         }
 
-        clock_t end = clock();
-        printf("non-contiguous took: %d\n", (int) (end - start));
+        gettimeofday(&tv2, NULL);
+        printf("contiguous took: %f\n", get_time(tv1, tv2));
 
     }
 
     free(weights);
 }
+
 
 void gaussian_filter(float *in_cube, float *out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz, size_t ky, size_t kx) {
 
@@ -175,17 +184,19 @@ void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, i
     size_t kz = kernel[2];
     size_t kt = kernel[3];
 
+    struct timeval tv1, tv2;
+
     if (kx + ky > 0) {
-        clock_t start = clock();
+        gettimeofday(&tv1, NULL);
         gaussian_filter(in_cube, out_cube, cube_z, cube_y, cube_x, 0, ky, kx);
-        clock_t end = clock();
-        printf("time spent on gaussian filter: %d\n", ((int) end - (int) start));
+        gettimeofday(&tv2, NULL);
+        printf("time spent on gaussian filter: %f\n", get_time(tv1, tv2));
     }
     if (kz > 0) {
-        clock_t start = clock();
+        gettimeofday(&tv1, NULL);
         uniform_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, kz);
-        clock_t end = clock();
-        printf("time spent on uniform filter: %d\n", ((int) end - (int) start));
+        gettimeofday(&tv2, NULL);
+        printf("time spent on uniform filter: %f\n", get_time(tv1, tv2));
     }
 
     free(out_cube);
