@@ -4,6 +4,9 @@
 #include <sys/time.h>
 #include <omp.h>
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 double get_time(struct timeval tv1, struct timeval tv2) {
     double delta = ((tv2.tv_sec - tv1.tv_sec) * 1000000u + tv2.tv_usec - tv1.tv_usec) / 1.e6;
     return delta;
