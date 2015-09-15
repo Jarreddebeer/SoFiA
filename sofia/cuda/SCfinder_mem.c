@@ -226,6 +226,37 @@ void uniform_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t cu
 
 }
 
+void uniform_filter_1d_multi(float *in_cube, float *out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz) {
+
+    int size1 = kz / 2;
+    int size2 = kz - size1 - 1;
+    if (size1 == 0 && size2 <= 0) {
+        return;
+    }
+
+    size_t stride = cube_x * cube_y;
+
+    for (int x = 0; x < cube_x; x++) {
+        for (int y = 0; y < cube_y; y++) {
+            for (int z = 0; z < cube_z; z++) {
+
+                float avg = 0;
+
+                for (int dz = z-size1; dz <= z+size2; dz++) {
+                    int z_idx = MAX(0, dz);
+                    z_idx = MIN(cube_z - 1, dz);
+                    int index = (z_idx * stride) + (y * cube_x) + x;
+                    avg += in_cube[index];
+                }
+
+                avg /= size1 + size2 + 1;
+                out_cube[(z * stride) + (y * cube_x) + x] = avg;
+
+            }
+        }
+    }
+}
+
 // void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernels, size_t kern_size) {
 void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernel) {
 
@@ -244,7 +275,7 @@ void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, i
     }
     if (kz > 0) {
         clock_t start = clock();
-        uniform_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, kz);
+        uniform_filter_1d_multi(in_cube, out_cube, cube_z, cube_y, cube_x, kz);
         clock_t end = clock();
         printf("time spent on uniform filter: %d\n", ((int) end - (int) start));
     }
