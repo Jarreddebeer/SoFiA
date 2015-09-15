@@ -178,6 +178,8 @@ void uniform_filter_1d(float *in_cube, float *out_cube, size_t cube_z, size_t cu
 
 }
 
+// This turned out to be too slow, but might be useful in CUDA, however.
+///////
 void uniform_filter_1d_multi(float *in_cube, float *out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz) {
 
     int size1 = kz / 2;
@@ -188,6 +190,7 @@ void uniform_filter_1d_multi(float *in_cube, float *out_cube, size_t cube_z, siz
 
     size_t stride = cube_x * cube_y;
 
+    #pragma omp parallel for
     for (int x = 0; x < cube_x; x++) {
         for (int y = 0; y < cube_y; y++) {
             for (int z = 0; z < cube_z; z++) {
