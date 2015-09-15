@@ -16,13 +16,15 @@ C = ffi.dlopen('./SCfinder_mem.so')
 def sumsq(a, b):
     return math.sqrt(((a - b)**2).sum())
 
-def C_gaussian_filter(input, kernel):
-    input_ptr = ffi.cast("float*", input.ctypes.data)
-    C.gaussian_filter(input_ptr, input.shape[0], input.shape[1], input.shape[2], kernel[2], kernel[1], kernel[0])
+def C_gaussian_filter(ary, kernel):
+    out = numpy.array(ary)
+    ary_ptr = ffi.cast("double*", ary.ctypes.data)
+    out_ptr = ffi.cast("double*", out.ctypes.data)
+    C.gaussian_filter(ary_ptr, out_ptr, ary.shape[0], ary.shape[1], ary.shape[2], kernel[1], kernel[0])
 
 def C_SCfinder_mem(cube, kernels):
     kernels = numpy.array(kernels, dtype='int32')
-    cube_ptr = ffi.cast("float*", cube.ctypes.data)
+    cube_ptr = ffi.cast("double*", cube.ctypes.data)
     kernel_ptr = ffi.cast("int*", kernels.ctypes.data)
     C.SCfinder_mem(cube_ptr, cube.shape[0], cube.shape[1], cube.shape[2], kernel_ptr, len(kernels))
 
@@ -53,7 +55,7 @@ class TestGaussian:
              [7, 8, 9, 6],
              [2, 3, 4, 5]]
 
-        ], numpy.float32)
+        ], numpy.double)
 
         for kernel in kernels:
             input_copy = numpy.array(input)
@@ -68,7 +70,7 @@ class TestGaussian:
 
         kernels = [[ 0, 0, 0,98],[ 0, 0, 3,98],[ 0, 0, 7,98],[ 0, 0, 15,98],[ 3, 3, 0,98],[ 3, 3, 3,98],[ 3, 3, 7,98],[ 3, 3, 15,98],[ 6, 6, 0,98],[ 6, 6, 3,98],[ 6, 6, 7,98],[ 6, 6, 15,98]]
 
-        input = numpy.arange(10 * 50 * 50).astype(numpy.float32)
+        input = numpy.arange(10 * 50 * 50).astype(numpy.double)
         input.shape = (10, 50, 50)
 
         for kernel in kernels:

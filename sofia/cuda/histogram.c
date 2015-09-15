@@ -3,7 +3,7 @@
 #include <time.h>
 #include <math.h>
 
-void histogram(float* ary, double* bins, int* histo, int ary_len, int bin_len, int histo_len) {
+void histogram(double* ary, double* bins, int* histo, int ary_len, int bin_len, int histo_len) {
 
     double min = bins[0];
     double bin_size = bins[1] - bins[0];
