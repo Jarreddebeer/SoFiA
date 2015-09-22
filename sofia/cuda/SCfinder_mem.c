@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <sys/time.h>
+#include <gaussian_separable_kernel.cu>
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -138,6 +139,7 @@ void gaussian_filter(double *in_cube, double *out_cube, size_t cube_z, size_t cu
     }
 
 }
+
 
 void uniform_filter_1d(double *in_cube, double *out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz) {
 
