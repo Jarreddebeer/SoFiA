@@ -24,14 +24,15 @@ void copy3d(double *to, double *from, size_t cube_z, size_t cube_y, size_t cube_
     }
 }
 
-void test_cuda() {
-    double *h_in_cube = malloc(10 * sizeof(double));
-    double *h_out_cube = malloc(10 * sizeof(double));
-    size_t cube_z = 10;
-    size_t cube_y = 10;
-    size_t cube_x = 10;
-    size_t ky = 10;
-    size_t kx = 10;
+void test_cuda(
+    double *h_in_cube,
+    double *h_out_cube,
+    size_t cube_z,
+    size_t cube_y,
+    size_t cube_x,
+    size_t ky,
+    size_t kx
+) {
     gaussian_filter_GPU(
         h_in_cube,
         h_out_cube,
