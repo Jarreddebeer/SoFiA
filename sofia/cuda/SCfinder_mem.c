@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <sys/time.h>
-#include <gaussian_separable_kernel.cu>
+#include "gaussianSeparable_kernel.h"
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -22,6 +22,25 @@ void copy3d(double *to, double *from, size_t cube_z, size_t cube_y, size_t cube_
             }
         }
     }
+}
+
+void test_cuda() {
+    double *h_in_cube = malloc(10 * sizeof(double));
+    double *h_out_cube = malloc(10 * sizeof(double));
+    size_t cube_z = 10;
+    size_t cube_y = 10;
+    size_t cube_x = 10;
+    size_t ky = 10;
+    size_t kx = 10;
+    gaussian_filter_GPU(
+        h_in_cube,
+        h_out_cube,
+        cube_z,
+        cube_y,
+        cube_x,
+        ky,
+        kx
+    );
 }
 
 void convolve_1d(double *in_cube, double *out_cube, double *weights, int cube_idx, size_t lw, int offset_multiplier, int min_clip, int max_clip) {

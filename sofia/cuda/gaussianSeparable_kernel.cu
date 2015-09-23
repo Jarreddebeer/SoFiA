@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 
+extern "C" {
+#include "gaussianSeparable_kernel.h"
+}
+
 #define BLOCKSIZE 32
 
 
@@ -16,8 +20,12 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 }
 
 
+__global__ void test_kernel() {
+    printf("1\n");
+}
 
 
+/*
 
 __global__ void gaussian_filter_row_gpu(double *d_in_cube, double *d_out_cube, int cube_x, int cube_y, int kernel_r) {
 
@@ -62,9 +70,11 @@ __global__ void gaussian_filter_row_gpu(double *d_in_cube, double *d_out_cube, i
 
 }
 
+*/
 
 void gaussian_filter_GPU(double *h_in_cube, double *h_out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t ky, size_t kx) {
 
+    /*
     int cube_size = cube_z * cube_y * cube_x * sizeof(double)
     int data_w = (int) cube_x;
     int data_h = (int) cube_y;
@@ -116,6 +126,14 @@ void gaussian_filter_GPU(double *h_in_cube, double *h_out_cube, size_t cube_z, s
 
         cudaMemcpy(h_out_cube, d_out_cube, cube_size, cudaMemcpyDeviceToHost);
     }
+    */
+
+printf("From the CPU\n");
+    dim3 dimBlock = dim3(16, 16, 1);
+    dim3 dimGrid  = dim3(1, 1, 1);
+    test_kernel<<<dimGrid, dimBlock>>>();
+        gpuErrchk( cudaDeviceSynchronize() );
+        gpuErrchk( cudaPeekAtLastError() );
 
 }
 
