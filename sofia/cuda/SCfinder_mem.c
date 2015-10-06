@@ -74,7 +74,6 @@ void convolve_1d(double *in_cube, double *out_cube, double *weights, int cube_id
 void gaussian_filter_1d(double *in_cube, double *out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t ks, int switch_xy) {
 
     int truncate = 4;
-
     double sd = ((double) ks) / 2.355;
     int lw = (int) (sd * truncate + 0.5);
 
