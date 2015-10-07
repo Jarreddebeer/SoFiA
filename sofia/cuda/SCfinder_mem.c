@@ -202,6 +202,7 @@ void uniform_filter_1d(double *in_cube, double *out_cube, size_t cube_z, size_t 
 
 // This turned out to be too slow, but might be useful in CUDA, however.
 ///////
+/*
 void uniform_filter_1d_multi(double *in_cube, double *out_cube, size_t cube_z, size_t cube_y, size_t cube_x, size_t kz) {
 
     int size1 = kz / 2;
@@ -233,6 +234,7 @@ void uniform_filter_1d_multi(double *in_cube, double *out_cube, size_t cube_z, s
         }
     }
 }
+*/
 
 // void SCfinder_mem(double *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernels, size_t kern_size) {
 void SCfinder_mem(double *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernel) {
@@ -248,7 +250,8 @@ void SCfinder_mem(double *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, 
 
     if (kx + ky > 0) {
         gettimeofday(&tv1, NULL);
-        gaussian_filter(in_cube, out_cube, cube_z, cube_y, cube_x, ky, kx);
+        // gaussian_filter(in_cube, out_cube, cube_z, cube_y, cube_x, ky, kx);
+        gaussian_filter_GPU(in_cube, out_cube, cube_z, cube_y, cube_x, ky, kx);
         gettimeofday(&tv2, NULL);
         printf("time spent on gaussian filter: %f\n", get_time(tv1, tv2));
     }

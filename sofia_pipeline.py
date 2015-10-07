@@ -34,8 +34,8 @@ t_sc_start = time()
 if Parameters['steps']['doSCfind']:
     print 'Running S+C filter'
     pyfind_mask = pyfind.SCfinder_mem(np_Cube, dict_Header, **Parameters['SCfind'])
-    np.save('tests/original_refactored/pyfind_mask', pyfind_mask)
-    mask = mask + pyfind_mask
+    # np.save('tests/original_refactored/pyfind_mask', pyfind_mask)
+    # mask = mask + pyfind_mask
 t_sc = time() - t_sc_start
 
 print 'S+C took: %.3f' % t_sc

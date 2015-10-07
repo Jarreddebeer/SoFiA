@@ -55,11 +55,13 @@ def SortKernels(kernels):
 
 def C_SCfinder_mem(cube, kernel):
     kernel = np.array(kernel, dtype='int32')
-    cube_ptr = ffi.cast("float*", cube.ctypes.data)
+    cube_ptr = ffi.cast("double*", cube.ctypes.data)
     kernel_ptr = ffi.cast("int*", kernel.ctypes.data)
     C.SCfinder_mem(cube_ptr, cube.shape[0], cube.shape[1], cube.shape[2], kernel_ptr)
 
 def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,maskScaleXY=2.,maskScaleZ=2.,kernelUnit='pixel',edgeMode='constant',rmsMode='negative',verbose=0):
+
+    cube = cube[0:200][0:360][0:360]
 
     msk = np.zeros(cube.shape, 'bool')
     found_nan = np.isnan(cube).sum()
@@ -82,7 +84,7 @@ def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,m
     t_rms_initial = time() - t_rms_initial_start
     print 'initial RMS: %.3f' % t_rms_initial
 
-    cube_to_smooth = cube * 1.
+    cube_to_smooth = np.array(cube * 1.).astype(np.double)
     if found_nan: cube_to_smooth = np.nan_to_num(cube_to_smooth)
 
     for kernel in kernels:
@@ -107,10 +109,11 @@ def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,m
         cube_smoothed[mask_positive] = +maskScaleXY * rms
         cube_smoothed[mask_negative] = -maskScaleXY * rms
 
+        print("smoothing with kernel %s %s %s" % (kx, ky, kz))
         t_start = time()
         C_SCfinder_mem(cube_smoothed, kernel)
         t_end = time()
-        # print("smoothing total time: ", t_end - t_start)
+        print("smoothing total time: ", t_end - t_start)
 
         '''
         if kx + ky:

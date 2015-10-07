@@ -22,11 +22,13 @@ def C_gaussian_filter(ary, kernel):
     out_ptr = ffi.cast("double*", out.ctypes.data)
     C.gaussian_filter(ary_ptr, out_ptr, ary.shape[0], ary.shape[1], ary.shape[2], kernel[1], kernel[0])
 
+'''
 def C_SCfinder_mem(cube, kernels):
     kernels = numpy.array(kernels, dtype='int32')
     cube_ptr = ffi.cast("double*", cube.ctypes.data)
     kernel_ptr = ffi.cast("int*", kernels.ctypes.data)
     C.SCfinder_mem(cube_ptr, cube.shape[0], cube.shape[1], cube.shape[2], kernel_ptr, len(kernels))
+'''
 
 class TestGaussian:
 
@@ -64,6 +66,7 @@ class TestGaussian:
             kz = 0
             output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], mode='constant', truncate=4)
             C_gaussian_filter(input_copy, kernel)
+
             assert_array_almost_equal(output, input_copy, decimal=3)
 
     def test_array_nxn(self):

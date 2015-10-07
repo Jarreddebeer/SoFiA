@@ -18,8 +18,8 @@ C = ffi.dlopen('./sofia/cuda/histogram.so')
 
 def C_histogram(ary, bins):
     histo = np.zeros(bins.shape, np.int32)
-    ary = np.ravel(ary)
-    ary_ptr = ffi.cast("float*", ary.ctypes.data)
+    ary = np.ravel(ary).astype(np.double)
+    ary_ptr = ffi.cast("double*", ary.ctypes.data)
     bins_ptr = ffi.cast("double*", bins.ctypes.data)
     histo_ptr = ffi.cast("int*", histo.ctypes.data)
     C.histogram(ary_ptr, bins_ptr, histo_ptr, len(ary), len(bins), len(histo))

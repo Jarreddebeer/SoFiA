@@ -6,7 +6,7 @@ extern "C" {
 #include "gaussianSeparable_kernel.h"
 }
 
-#define BLOCKSIZE 8
+#define BLOCKSIZE 32
 #define MAX_LW 257 // CONSTRAINT: max size of lw (window) is 256
 __device__ __constant__ double d_weights[MAX_LW];
 
@@ -251,6 +251,10 @@ void gaussian_filter_1d(double *h_in_cube, double *h_out_cube, int cube_z, int c
     gpuErrchk( cudaPeekAtLastError() );
     gpuErrchk( cudaDeviceSynchronize() );
     cudaMemcpy(h_out_cube, d_out_cube, cube_size, cudaMemcpyDeviceToHost);
+
+    cudaFree(d_in_cube);
+    cudaFree(d_out_cube);
+    free(h_weights);
 
 }
 
