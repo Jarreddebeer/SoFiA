@@ -3,6 +3,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include "gaussianSeparable_kernel.h"
+#include "uniform_kernel.h"
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -47,6 +48,25 @@ void test_cuda(
         kx
     );
 }
+
+void test_cuda_uniform(
+    double *h_in_cube,
+    double *h_out_cube,
+    size_t cube_z,
+    size_t cube_y,
+    size_t cube_x,
+    size_t kz
+) {
+    uniform_filter_1d_GPU(
+        h_in_cube,
+        h_out_cube,
+        cube_z,
+        cube_y,
+        cube_x,
+        kz
+    );
+}
+
 
 void convolve_1d(double *in_cube, double *out_cube, double *weights, int cube_idx, size_t lw, int offset_multiplier, int min_clip, int max_clip) {
 
