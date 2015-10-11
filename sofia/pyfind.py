@@ -61,8 +61,6 @@ def C_SCfinder_mem(cube, kernel):
 
 def SCfinder_mem(cube,header,kernels=[[0,0,0,'b'],],threshold=3.5,sizeFilter=0,maskScaleXY=2.,maskScaleZ=2.,kernelUnit='pixel',edgeMode='constant',rmsMode='negative',verbose=0):
 
-    cube = cube[0:200][0:360][0:360]
-
     msk = np.zeros(cube.shape, 'bool')
     found_nan = np.isnan(cube).sum()
 

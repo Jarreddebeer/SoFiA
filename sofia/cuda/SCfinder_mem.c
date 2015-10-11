@@ -12,6 +12,7 @@ double get_time(struct timeval tv1, struct timeval tv2) {
     return delta;
 }
 
+
 void copy3d(double *to, double *from, size_t cube_z, size_t cube_y, size_t cube_x) {
     #pragma omp parallel for
     for (size_t z = 0; z < cube_z; z++) {
@@ -23,6 +24,9 @@ void copy3d(double *to, double *from, size_t cube_z, size_t cube_y, size_t cube_
         }
     }
 }
+
+
+
 
 void test_cuda(
     double *h_in_cube,
@@ -239,7 +243,9 @@ void uniform_filter_1d_multi(double *in_cube, double *out_cube, size_t cube_z, s
 // void SCfinder_mem(double *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernels, size_t kern_size) {
 void SCfinder_mem(double *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, int *kernel) {
 
-    double* out_cube = (double *) malloc(sizeof(double) * cube_x * cube_y * cube_z);
+    // double* out_cube = (double *) malloc(sizeof(double) * cube_x * cube_y * cube_z);
+    double* out_cube = (double *) malloc(sizeof(double) * 1);
+    // double* out_cube = init_out_cube(in_cube, cube_z, cube_y, cube_x);
 
     size_t kx = kernel[0];
     size_t ky = kernel[1];
