@@ -19,33 +19,34 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 
 
 
-__global__ void uniform_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_cube, size_t allocate_px, int size1, int size2, int stride, int cube_z, int cube_y, int cube_x, int kz) {
+__global__ void uniform_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_cube, int big_stride, int pad1_px, int pad2_px, int stride, int cube_y, int cube_x, int kz) {
 
-    int tx = threadIdx.x;
-    int ty = threadIdx.y;
-    int x = blockDim.x * blockIdx.x + tx;
-    int y = blockDim.y * blockIdx.y + ty;
-
-    int base = size1 * (cube_x * cube_y);
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
 
     if (x < cube_x && y < cube_y) {
 
         // calculate initial average
         double tmp = 0.0;
-        int start_idx = base + y * cube_x + x;
-        int end_idx = start_idx + cube_z * stride;
+        int start_idx = pad1_px + y * cube_x + x;
+        int end_idx = start_idx + big_stride;
 
-        int lo_idx = start_idx - (size1 * stride);
-        int hi_idx = start_idx + (size2 * stride);
+        int lo_idx = start_idx - pad1_px;
+        int hi_idx = start_idx + pad2_px;
 
         double lo_val, hi_val;
+
 
         // initialize tmp
         for (int i = lo_idx; i <= hi_idx; i += stride) {
             tmp += d_in_cube[i];
         }
         tmp /= (double) kz;
-        d_out_cube[start_idx - base] = tmp;
+        d_out_cube[start_idx - pad1_px] = tmp;
+
+        if (x == 319 && y == 319 && big_stride < 30000000) {
+            printf("setting start_idx of %d (z level %d) to %f\n", start_idx, start_idx / stride, tmp);
+        }
 
         lo_idx += stride;
         start_idx += stride;
@@ -55,12 +56,18 @@ __global__ void uniform_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_cu
             lo_val = d_in_cube[lo_idx];
             hi_val = d_in_cube[hi_idx];
             tmp += hi_val / (double) kz;
-            d_out_cube[cube_idx - base] = tmp;
-            // remove lower value for next iteration
+            d_out_cube[cube_idx - pad1_px] = tmp;
+
+            if (x == 319 && y == 319 && big_stride < 30000000) {
+                printf("z level to %f\n", tmp);
+            }
+
             tmp -= lo_val / (double) kz;
         }
 
     }
+
+    __syncthreads();
 
 }
 
@@ -70,7 +77,8 @@ int get_available_out_bytes_uni() {
     size_t free_byte, total_byte;
     gpuErrchk( cudaMemGetInfo(&free_byte, &total_byte) );
     double free_db = (double)free_byte;
-    return (int) (free_db - 1024.0 * 1024.0 * 15) / 2.0; // shave off 15MB so we don't crash by not being able to allocate the last bit of memory on the device
+    // return (int) (free_db - 1024.0 * 1024.0 * 15) / 2.0; // shave off 15MB so we don't crash by not being able to allocate the last bit of memory on the device
+    return 48947200 * 8;
 }
 
 
@@ -83,68 +91,102 @@ void uniform_filter_1d_GPU(double *in, double *out, int cube_z, int cube_y, int 
         return;
     }
 
-    size_t stride = cube_x * cube_y;
+    int stride = cube_x * cube_y;
+
+    for (int i = 476; i < 480; i++) {
+        printf("h_in[%d] = %f\n", i, in[i * stride + 319 * cube_x + 319]);
+    }
 
     // initialize size of cube to filter
     double *h_in = in;
-    size_t plane_px = cube_z * cube_x;
-    size_t total_cube_px = plane_px * cube_y;
-    long total_cube_bytes = total_cube_px * sizeof(double);
+    int plane_px = cube_y * cube_x;
+    int total_cube_px = plane_px * cube_z;
+    int total_cube_bytes = total_cube_px * sizeof(double);
 
     // initialize padded data
-    size_t pad1_px = size1 * plane_px;
-    size_t pad2_px = size2 * plane_px;
-    size_t pad_px = pad1_px + pad2_px;
-    size_t pad1_bytes = pad1_px * sizeof(double);
-    size_t pad2_bytes = pad2_px * sizeof(double);
-    double* pad1_next = malloc(pad1_bytes);
+    int pad1_px = size1 * plane_px;
+    int pad2_px = size2 * plane_px;
+    int pad_px = pad1_px + pad2_px;
+    int pad1_bytes = pad1_px * sizeof(double);
+    int pad2_bytes = pad2_px * sizeof(double);
+    double* pad1_next = (double*) malloc(pad1_bytes);
 
     // determine how much memory is available for allocation on the device
     // and calculate how much z_height of the cube can fit into it
-    size_t available_bytes = get_available_out_bytes_uni();
-    size_t available_px = available_bytes / sizeof(double);
-    size_t z_depth;
-    if (total_cube_px > available_px) {
-        z_depth = (available_px - available_px % plane_px) / plane_px;
+    int available_bytes = get_available_out_bytes_uni();
+    int available_px = available_bytes / sizeof(double);
+    int allocate_px;
+    // case 1: there are more pixels than can be allocated to device memory
+    if (available_px - pad_px < total_cube_px) {
+        allocate_px = (available_px - available_px % plane_px);
     } else {
-        z_depth = total_cube_px / plane_px;
+        allocate_px = total_cube_px + pad_px;
     }
-    size_t allocate_px = z_depth * plane_px;
-    size_t allocate_bytes = allocate_px * sizeof(double);
+    // size_t allocate_px = z_depth * plane_px;
+    printf("allocating px, allocate_px: %d (z level of: %d)\n", allocate_px, allocate_px / stride);
+    int allocate_bytes = allocate_px * sizeof(double);
 
     // info to process the cube in chunks
-    size_t big_index = -pad1_px;
-    size_t big_stride = allocate_px - pad_px;
-
-    size_t out_bytes = big_stride * sizeof(double);
+    int big_index = -pad1_px;
+    int big_stride = allocate_px - pad_px;
+    printf("setting big_stride to %d (z level of: %d)\n", big_stride, big_stride / stride);
+    int big_stride_bytes = big_stride * sizeof(double);
 
     // memory allocation
     double *d_in  = NULL;
     double *d_out = NULL;
+
     gpuErrchk( cudaMalloc(&d_in,  allocate_bytes) );
-    gpuErrchk( cudaMalloc(&d_out, out_bytes) );
+    gpuErrchk( cudaMalloc(&d_out, big_stride_bytes) );
 
-    gpuErrchk( cudaHostRegister(in, total_cube_bytes, 0) );
+    gpuErrchk( cudaHostRegister(h_in, total_cube_bytes, 0) );
 
-    for (; big_index < total_cube_px; big_index += big_stride) {
+    int has_next_run = 1;
 
-        if (big_index + big_stride > total_cube_px) {
-            z_depth = (total_cube_px - big_stride) / plane_px;
-            allocate_px = z_depth * plane_px;
+    for (; big_index + pad1_px < total_cube_px; big_index += big_stride) {
+
+        // blit d_in with zeros
+        gpuErrchk( cudaMemset(d_in, 0, allocate_bytes) );
+        printf("Iteration. big_index is %d (z level of: %d), allocate_px is %d (z level of: %d)\n", big_index, big_index / stride, allocate_px, allocate_px / stride);
+
+        gpuErrchk( cudaDeviceSynchronize() );
+
+        // case 1: end of cube is within our big_stride, so clip big_stride
+        if (big_index + pad1_px + big_stride > total_cube_px) {
+            printf("CASE 1!!!\n");
+            allocate_px = total_cube_px - big_index;
+            printf("allocate_px: %d (z level of: %d)\n", allocate_px, allocate_px / stride);
             allocate_bytes = allocate_px * sizeof(double);
+            big_stride = allocate_px - pad1_px;
+            printf("big_stride: %d (z level of: %d)\n", big_stride, big_stride / stride);
+            big_stride_bytes = big_stride * sizeof(double);
+            pad2_bytes = 0;
+            has_next_run = 0;
         }
 
-        // first iteration padding is with zeros
-        if (big_index < 0) {
-            memset(pad1_next, 0, pad1_bytes);
+        // case 2: end of cube is within our pad2_px region, so clip pad2_px
+        else if (big_index + allocate_px > total_cube_px) {
+            printf("CASE 2\n");
+            printf("big_index: %d, big_stride: %d, total_cube_px: %d\n", big_index, big_stride, total_cube_px);
+            pad2_px -= (big_index + allocate_px) - total_cube_px;
+            pad2_bytes = pad2_px * sizeof(double);
         }
 
         // copy pad1, then (data & pad2), to the device
-        gpuErrchk( cudaMemcpy(d_in, pad1_next))
-        gpuErrchk( cudaMemcpy(&d_in[pad1_px], &h_in[big_index + pad1_px], big_stride + pad2_bytes, cudaMemcpyHostToDevice) );
+
+        // we can ignore copying from pad1_next on the first iteration because
+        // they are all zeros and we initialize with cudaMemset to 0 above.
+        if (big_index >= 0) {
+            gpuErrchk( cudaMemcpy(d_in, pad1_next, pad1_bytes, cudaMemcpyHostToDevice));
+        }
+
+        // populate the device with big_stride and pad2. big_stride and pad2 will have been set to zero or clipped in either case1 or case2 above.
+        gpuErrchk( cudaMemcpy(&d_in[pad1_px], &h_in[big_index + pad1_px], big_stride_bytes + pad2_bytes, cudaMemcpyHostToDevice) );
 
         // cache pad1 data for the next run
-        memcpy(pad1_next, h_in[big_index + big_stride], pad1_bytes);
+        if (has_next_run) {
+            memcpy(pad1_next, &h_in[big_index + big_stride], pad1_bytes);
+        }
 
         dim3 dimBlock = dim3(BLOCKSIZE, BLOCKSIZE, 1);
         dim3 dimGrid = dim3(
@@ -152,18 +194,39 @@ void uniform_filter_1d_GPU(double *in, double *out, int cube_z, int cube_y, int 
             ceil( ((int) cube_y) / (float) dimBlock.y),
             1
         );
-        uniform_filter_1d_gpu_kernel<<<dimGrid, dimBlock>>>(d_in, d_out, allocate_px, size1, size2, stride, cube_z, cube_y, cube_x, kz);
+        printf("start_idx: %d (z level of %d)\n", pad1_px, pad1_px / stride);
+        printf("end_idx: %d (z level of %d)\n", pad1_px + big_stride, (pad1_px + big_stride) / stride);
+        uniform_filter_1d_gpu_kernel<<<dimGrid, dimBlock>>>(d_in, d_out, big_stride, pad1_px, size2 * plane_px, stride, cube_y, cube_x, kz);
         gpuErrchk( cudaPeekAtLastError() );
+        gpuErrchk( cudaDeviceSynchronize() );
 
         // copy back to host data
-        gpuErrchk( cudaMemcpy(&h_in[big_index + size1_px], d_out, out_bytes, cudaMemcpyDeviceToHost) );
+        printf("copying d_out to h_in with big_stride %d (z level of %d)\n", big_stride, big_stride / stride);
+        gpuErrchk( cudaMemcpy(&h_in[big_index + pad1_px], d_out, big_stride_bytes, cudaMemcpyDeviceToHost) );
 
     }
+
+    double* d_in_copy = (double*) malloc(allocate_bytes + (8*320*320) * sizeof(double));
+    double* d_out_copy = (double*) malloc(allocate_bytes * sizeof(double));
+    cudaMemcpy(d_in_copy, d_in, allocate_bytes + (8*320*320) * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(d_out_copy, d_out, allocate_bytes  * sizeof(double), cudaMemcpyDeviceToHost);
+
+    for (int i = 1; i < 8; i++) {
+        printf("d_in_copy[%d] = %f\n", i, d_in_copy[i * stride + 319 * cube_x + 319]);
+    }
+
+    for (int i = 0; i < 5; i++) {
+        printf("d_out[%d] = %f\n", i, d_out_copy[i * stride + 319 * cube_x + 329]);
+    }
+
+    free(d_in_copy);
+    free(d_out_copy);
 
     // clean up
     cudaHostUnregister(in);
     cudaFree(d_in);
     cudaFree(d_out);
+    free(pad1_next);
 
 }
 
