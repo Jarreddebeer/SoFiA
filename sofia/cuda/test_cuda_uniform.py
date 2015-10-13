@@ -22,7 +22,7 @@ class TestCuda:
 
     def test_random_large(self):
 
-        ary = numpy.random.random((480, 320, 320)).astype(numpy.double)
+        ary = numpy.random.random((660, 320, 320)).astype(numpy.double)
         # ary = numpy.array([
         #     [[1]],
         #     [[2]],
@@ -56,22 +56,23 @@ class TestCuda:
         # print "NMPY"
         # print nmpy_out
 
-        for z in range(470, 480):
-            for y in range(310, 320):
-                for x in range(310, 320):
-                    print abs(ary[z][y][x] - nmpy_out[z][y][x]),
-                print
-            print
-            print
 
-        print
-        print
+        # for z in range(12):
+        #     for y in range(315, 320):
+        #         for x in range(315, 320):
+        #             print abs(ary[z][y][x] - nmpy_out[z][y][x]),
+        #         print
+        #     print
+        #     print
 
-        for z in range(476, 480):
-            print 'z level:', z, 'cuda: ', ary[z][319][319], 'nmpy: ', nmpy_out[z][319][319], 'original: ', ary_copy[z][319][319]
+        # print
+        # print
 
-        # assert_array_almost_equal(ary, nmpy_out, decimal=2)
-        assert_array_almost_equal([1], [2], decimal=2)
+        # for z in range(12):
+        #     print 'z level:', z, 'cuda: ', ary[z][319][319], 'nmpy: ', nmpy_out[z][319][319], 'original: ', ary_copy[z][319][319]
 
-# tc = TestCuda()
-# tc.test_random_large()
+        # print assert_array_almost_equal(ary, nmpy_out, decimal=2)
+        # print assert_array_almost_equal([1], [2], decimal=2)
+
+tc = TestCuda()
+tc.test_random_large()
