@@ -140,7 +140,7 @@ void gaussian_filter_1d(double *in_cube, double *out_cube, size_t cube_z, size_t
         }
 
         gettimeofday(&tv2, NULL);
-        printf("contiguous took: %f\n", get_time(tv1, tv2));
+        // printf("contiguous took: %f\n", get_time(tv1, tv2));
 
     } else {
 
@@ -160,7 +160,7 @@ void gaussian_filter_1d(double *in_cube, double *out_cube, size_t cube_z, size_t
         }
 
         gettimeofday(&tv2, NULL);
-        printf("contiguous took: %f\n", get_time(tv1, tv2));
+        // printf("contiguous took: %f\n", get_time(tv1, tv2));
 
     }
 
@@ -279,13 +279,13 @@ void SCfinder_mem(double *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, 
         // gaussian_filter(in_cube, out_cube, cube_z, cube_y, cube_x, ky, kx);
         gaussian_filter_GPU(in_cube, out_cube, cube_z, cube_y, cube_x, ky, kx);
         gettimeofday(&tv2, NULL);
-        printf("time spent on gaussian filter: %f\n", get_time(tv1, tv2));
+        // printf("time spent on gaussian filter: %f\n", get_time(tv1, tv2));
     }
     if (kz > 0) {
         gettimeofday(&tv1, NULL);
         uniform_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, kz);
         gettimeofday(&tv2, NULL);
-        printf("time spent on uniform filter: %f\n", get_time(tv1, tv2));
+        // printf("time spent on uniform filter: %f\n", get_time(tv1, tv2));
         copy3d(in_cube, out_cube, cube_z, cube_y, cube_x);
     }
 

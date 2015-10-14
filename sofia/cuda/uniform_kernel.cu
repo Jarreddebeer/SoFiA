@@ -91,6 +91,8 @@ int get_available_out_bytes_uni() {
 
 void uniform_filter_1d_GPU(double *in, double *out, int cube_z, int cube_y, int cube_x, int kz) {
 
+    if (cube_z == 0 && cube_y == 0 && cube_x == 0) return;
+
     gpuErrchk( cudaDeviceReset() );
 
     // initialize gaussian filter weights

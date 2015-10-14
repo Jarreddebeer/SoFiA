@@ -6,7 +6,7 @@ extern "C" {
 #include "gaussianSeparable_kernel.h"
 }
 
-#define BLOCKSIZE 32
+#define BLOCKSIZE 16
 #define MAX_LW 257 // CONSTRAINT: max size of lw (window) is 256
 __device__ __constant__ double d_weights[MAX_LW];
 
@@ -160,6 +160,7 @@ __global__ void gaussian_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_c
     }
 
     // corner cases ... WHY DO WE NEED THESE? TAKE OUT I THINK. TODO: remove
+    /*
 
     if (tx == 0 && ty == 0) { // TL
         for (int i = 0; i < lw; i++) {
@@ -188,6 +189,7 @@ __global__ void gaussian_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_c
             }
         }
     }
+    */
 
     __syncthreads();
 
@@ -269,6 +271,7 @@ void gaussian_filter_1d(double *in, double *out, int cube_z, int cube_y, int cub
     gpuErrchk( cudaMemcpyToSymbol(d_weights, h_weights, MAX_LW * sizeof(double)) );
     gpuErrchk( cudaHostRegister(in, total_cube_bytes, 0) );
 
+
     // process the cube in parts on the GPU
     size_t offset = 0;
     for (; offset < total_cube_px; offset += allocate_px) {
@@ -303,6 +306,8 @@ void gaussian_filter_1d(double *in, double *out, int cube_z, int cube_y, int cub
 
 
 void gaussian_filter_GPU(double *in_cube, double *out_cube, int cube_z, int cube_y, int cube_x, int ky, int kx) {
+
+    if (cube_z == 0 && cube_y == 0 && cube_x == 0) return;
 
     int stride;
 
