@@ -120,12 +120,12 @@ void gaussian_filter_1d(double *in_cube, double *out_cube, size_t cube_z, size_t
 
     size_t stride = cube_x * cube_y;
 
-    struct timeval tv1, tv2;
+    // struct timeval tv1, tv2;
     // correlate weights with the cube
     if (!switch_xy) {
 
         // clock_t start = clock();
-        gettimeofday(&tv1, NULL);
+        // gettimeofday(&tv1, NULL);
 
         #pragma omp parallel for
         for (size_t z = 0; z < cube_z; z++) {
@@ -139,13 +139,13 @@ void gaussian_filter_1d(double *in_cube, double *out_cube, size_t cube_z, size_t
             }
         }
 
-        gettimeofday(&tv2, NULL);
+        // gettimeofday(&tv2, NULL);
         // printf("contiguous took: %f\n", get_time(tv1, tv2));
 
     } else {
 
         // clock_t start = clock();
-        gettimeofday(&tv1, NULL);
+        //gettimeofday(&tv1, NULL);
 
         #pragma omp parallel for
         for (size_t z = 0; z < cube_z; z++) {
@@ -159,7 +159,7 @@ void gaussian_filter_1d(double *in_cube, double *out_cube, size_t cube_z, size_t
             }
         }
 
-        gettimeofday(&tv2, NULL);
+        // gettimeofday(&tv2, NULL);
         // printf("contiguous took: %f\n", get_time(tv1, tv2));
 
     }

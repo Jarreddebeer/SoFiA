@@ -89,64 +89,67 @@ for t in range(len(kernel_sizes)):
     u_plot_omp  = TikzPlot(ks, col, mark)
     u_plot_cuda = TikzPlot(ks, col, mark)
 
-    # data cube sizes are multiples of 32
-    for w in range(0, 321, 32):
+    # run 5 iterations of each
+    for r in range(5):
 
-        h = w * 2
-        print 'generating data of size (', h, w, w, ')'
-        data = np.random.random((h, w, w)).astype(np.double)
+        # data cube sizes are multiples of 32
+        for w in range(0, 65, 32):
 
-        # -------------
-        # time gaussian
-        # -------------
-        print 'timing gaussian...'
+            h = w * 2
+            print 'generating data of size (', h, w, w, ')'
+            data = np.random.random((h, w, w)).astype(np.double)
 
-        # original
-        print 'original...'
-        gs = time()
-        ndimage.gaussian_filter(data, [ks/2.355, ks/2.355, 0], mode='constant', truncate=4)
-        g_plot_orig.add_point(w, time() - gs)
-        print 'original ran in', time() - gs
+            # -------------
+            # time gaussian
+            # -------------
+            print 'timing gaussian...'
 
-        # omp
-        print 'omp...'
-        gs = time()
-        C_gaussian_filter_omp(data, kernel)
-        g_plot_omp.add_point(w, time() - gs)
-        print 'omp ran in', time() - gs
+            # original
+            print 'original...'
+            gs = time()
+            ndimage.gaussian_filter(data, [ks/2.355, ks/2.355, 0], mode='constant', truncate=4)
+            g_plot_orig.add_point(w, time() - gs)
+            print 'original ran in', time() - gs
 
-        # cuda
-        print 'cuda...'
-        gs = time()
-        C_gaussian_filter_cuda(data, kernel)
-        g_plot_cuda.add_point(w, time() - gs)
-        print 'cuda ran in', time() - gs
+            # omp
+            print 'omp...'
+            gs = time()
+            C_gaussian_filter_omp(data, kernel)
+            g_plot_omp.add_point(w, time() - gs)
+            print 'omp ran in', time() - gs
 
-        # ------------
-        # time uniform
-        # ------------
-        print 'timing uniform...'
+            # cuda
+            print 'cuda...'
+            gs = time()
+            C_gaussian_filter_cuda(data, kernel)
+            g_plot_cuda.add_point(w, time() - gs)
+            print 'cuda ran in', time() - gs
 
-        # original
-        print 'original...'
-        us = time()
-        ndimage.uniform_filter1d(data, ks, axis=0, mode='constant')
-        u_plot_orig.add_point(w, time() - us)
-        print 'original ran in', time() - us
+            # ------------
+            # time uniform
+            # ------------
+            print 'timing uniform...'
 
-        # omp
-        print 'omp...'
-        us = time()
-        C_uniform_filter_omp(data, kernel)
-        u_plot_omp.add_point(w, time() - us)
-        print 'omp ran in', time() - us
+            # original
+            print 'original...'
+            us = time()
+            ndimage.uniform_filter1d(data, ks, axis=0, mode='constant')
+            u_plot_orig.add_point(w, time() - us)
+            print 'original ran in', time() - us
 
-        # cuda
-        print 'cuda...'
-        us = time()
-        C_uniform_filter_cuda(data, kernel)
-        u_plot_cuda.add_point(w, time() - us)
-        print 'cuda ran in', time() - us
+            # omp
+            print 'omp...'
+            us = time()
+            C_uniform_filter_omp(data, kernel)
+            u_plot_omp.add_point(w, time() - us)
+            print 'omp ran in', time() - us
+
+            # cuda
+            print 'cuda...'
+            us = time()
+            C_uniform_filter_cuda(data, kernel)
+            u_plot_cuda.add_point(w, time() - us)
+            print 'cuda ran in', time() - us
 
 
     gaussian_pic_orig.add_plot(g_plot_orig)

@@ -1,3 +1,4 @@
+import numpy as np
 import sys
 
 class TikzPicture:
@@ -54,8 +55,19 @@ class TikzPicture:
         print '    ]'
         print '    coordinates {'
         print '        ',
-        for point in plot.points:
-            print '(' + str(abs(point['x'])) + ',' + str(abs(point['y'])) + ') ',
+        # use average of the points
+        s = {}
+        xs = []
+        for p in plot.points:
+            xs.append(p['x'])
+        xs = sorted(set(xs))
+        for x in xs:
+            s[x] = []
+        for p in plot.points:
+            s[p['x']].append(p['y'])
+        for x in xs:
+            s[x] = np.mean(s[x])
+            print '(' + str(abs(x)) + ',' + str(abs(s[x])) + ') ',
         print
         print '    };'
 
