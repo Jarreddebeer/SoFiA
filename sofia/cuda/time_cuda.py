@@ -15,7 +15,7 @@ from cffi import FFI
 # -----------
 # - kernels have equivalent filter sizes
 # - cubes are rectangular z = 2*x, and x = y
-# - data is in doubles
+# - data is in floats
 # -----------
 
 # ===================
@@ -30,26 +30,26 @@ C = ffi.dlopen('./SCfinder_mem.so')
 
 def C_uniform_filter_cuda(ary, kernel):
     out = np.zeros((1, 1, 1)) # not used
-    ary_ptr = ffi.cast("double*", ary.ctypes.data)
-    out_ptr = ffi.cast("double*", out.ctypes.data)
+    ary_ptr = ffi.cast("float*", ary.ctypes.data)
+    out_ptr = ffi.cast("float*", out.ctypes.data)
     C.test_cuda_uniform(ary_ptr, out_ptr, ary.shape[0], ary.shape[1], ary.shape[2], kernel[2])
 
 def C_uniform_filter_omp(ary, kernel):
     out = np.array(ary)
-    ary_ptr = ffi.cast("double*", ary.ctypes.data)
-    out_ptr = ffi.cast("double*", out.ctypes.data)
+    ary_ptr = ffi.cast("float*", ary.ctypes.data)
+    out_ptr = ffi.cast("float*", out.ctypes.data)
     C.uniform_filter_1d(ary_ptr, out_ptr, ary.shape[0], ary.shape[1], ary.shape[2], kernel[2])
 
 def C_gaussian_filter_cuda(ary, kernel):
     out = np.zeros((1, 1, 1))
-    ary_ptr = ffi.cast("double*", ary.ctypes.data)
-    out_ptr = ffi.cast("double*", out.ctypes.data)
+    ary_ptr = ffi.cast("float*", ary.ctypes.data)
+    out_ptr = ffi.cast("float*", out.ctypes.data)
     C.test_cuda(ary_ptr, out_ptr, ary.shape[0], ary.shape[1], ary.shape[2], kernel[1], kernel[0])
 
 def C_gaussian_filter_omp(ary, kernel):
     out = np.array(ary)
-    ary_ptr = ffi.cast("double*", ary.ctypes.data)
-    out_ptr = ffi.cast("double*", out.ctypes.data)
+    ary_ptr = ffi.cast("float*", ary.ctypes.data)
+    out_ptr = ffi.cast("float*", out.ctypes.data)
     C.gaussian_filter(ary_ptr, out_ptr, ary.shape[0], ary.shape[1], ary.shape[2], kernel[1], kernel[0])
 
 
@@ -97,7 +97,7 @@ for t in range(len(kernel_sizes)):
 
             h = w * 2
             print 'generating data of size (', h, w, w, ')'
-            data = np.random.random((h, w, w)).astype(np.double)
+            data = np.random.random((h, w, w)).astype(np.float32)
 
             # -------------
             # time gaussian

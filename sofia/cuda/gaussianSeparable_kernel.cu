@@ -8,7 +8,7 @@ extern "C" {
 
 #define BLOCKSIZE 32
 #define MAX_LW 257 // CONSTRAINT: max size of lw (window) is 256
-__device__ __constant__ double d_weights[MAX_LW];
+__device__ __constant__ float d_weights[MAX_LW];
 
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -20,7 +20,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 }
 
 
-void copy3d(double *to, double *from, size_t cube_z, size_t cube_y, size_t cube_x) {
+void copy3d(float *to, float *from, size_t cube_z, size_t cube_y, size_t cube_x) {
     #pragma omp parallel for
     for (size_t z = 0; z < cube_z; z++) {
         for (size_t y = 0; y < cube_y; y++) {
@@ -63,10 +63,10 @@ extern "C" double* init_out_cube(size_t cube_z, size_t cube_y, size_t cube_x) {
 
 
 
-__device__ double convolve_1d_gpu_kernel_optimised(double *subcube, int sidx, int lw) {
+__device__ float convolve_1d_gpu_kernel_optimised(float *subcube, int sidx, int lw) {
 
-    double sum = d_weights[lw] * subcube[sidx];
-    double lo_val, hi_val, weight;
+    float sum = d_weights[lw] * subcube[sidx];
+    float lo_val, hi_val, weight;
 
     for (int i = 1; i <= lw; i++) {
         weight = d_weights[lw + i];
@@ -84,10 +84,10 @@ __device__ double convolve_1d_gpu_kernel_optimised(double *subcube, int sidx, in
 
 
 
-__global__ void gaussian_filter_1d_gpu_kernel_optimised(double *d_in_cube, double *d_out_cube, size_t allocate_px, int lw, int stride, int cube_y, int cube_x) {
+__global__ void gaussian_filter_1d_gpu_kernel_optimised(float *d_in_cube, float *d_out_cube, size_t allocate_px, int lw, int stride, int cube_y, int cube_x) {
 
     int tx, ty, sx, sy, x, y, sidx, sstride, cube_idx, t, ct, end;
-    extern __shared__ double subcube[];
+    extern __shared__ float subcube[];
 
     tx = threadIdx.x;
     ty = threadIdx.y;
@@ -164,10 +164,10 @@ __global__ void gaussian_filter_1d_gpu_kernel_optimised(double *d_in_cube, doubl
 
 }
 
-__device__ double convolve_1d_gpu_kernel(double *subcube, int sidx, int lw, int sstride) {
+__device__ float convolve_1d_gpu_kernel(float *subcube, int sidx, int lw, int sstride) {
 
-    double sum = d_weights[lw] * subcube[sidx];
-    double lo_val, hi_val, weight;
+    float sum = d_weights[lw] * subcube[sidx];
+    float lo_val, hi_val, weight;
 
     for (int i = 1; i <= lw; i++) {
         weight = d_weights[lw + i];
@@ -179,10 +179,10 @@ __device__ double convolve_1d_gpu_kernel(double *subcube, int sidx, int lw, int 
     return sum;
 }
 
-__global__ void gaussian_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_cube, size_t allocate_px, int lw, int stride, int cube_y, int cube_x) {
+__global__ void gaussian_filter_1d_gpu_kernel(float *d_in_cube, float *d_out_cube, size_t allocate_px, int lw, int stride, int cube_y, int cube_x) {
 
     int tx, ty, sx, sy, x, y, sidx, sstride, cube_idx;
-    extern __shared__ double subcube[];
+    extern __shared__ float subcube[];
 
     tx = threadIdx.x;
     ty = threadIdx.y;
@@ -281,13 +281,13 @@ __global__ void gaussian_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_c
 
 }
 
-double* generate_weights(double sd, int lw) {
-    double *h_weights    = (double *) malloc(sizeof(double) * MAX_LW);
+float* generate_weights(float sd, int lw) {
+    float *h_weights    = (float *) malloc(sizeof(float) * MAX_LW);
     h_weights[lw] = 1.0;
-    double sum = 1.0;
+    float sum = 1.0;
     // generate gaussian row weights
     for (int i = 1; i <= lw; i++) {
-        double tmp = exp(-0.5 * ((double) i * i) / (sd * sd));
+        float tmp = exp(-0.5 * ((float) i * i) / (sd * sd));
         h_weights[lw + i] = tmp;
         h_weights[lw - i] = tmp;
         sum += 2.0 * tmp;
@@ -306,26 +306,25 @@ int get_available_out_bytes() {
     return (int) (free_db - 1024.0 * 1024.0 * 15) / 2.0; // shave off 15MB so we don't crash by not being able to allocate the last bit of memory on the device
 }
 
-void gaussian_filter_1d(double *in, double *out, int cube_z, int cube_y, int cube_x, int ks, int stride) {
+void gaussian_filter_1d(float *in, float *out, int cube_z, int cube_y, int cube_x, int ks, int stride) {
 
     // initialize gaussian filter weights
-    double sd = ((double) ks) / 2.355;
+    float sd = ((float) ks) / 2.355;
     int lw = (int) (sd * 4 + 0.5);
-    // note: the unoptimised kernel cannot run with the optimised sm_bytes setting, I don't think.
-    // int sm_bytes        = (BLOCKSIZE + 2 * lw) * (BLOCKSIZE + 2 * lw) * sizeof(double);
-    int sm_bytes_optimised = (BLOCKSIZE) * (BLOCKSIZE + 2 * lw) * sizeof(double);
-    double* h_weights = generate_weights(sd, lw);
+
+    int sm_bytes_optimised = (BLOCKSIZE) * (BLOCKSIZE + 2 * lw) * sizeof(float);
+    float* h_weights = generate_weights(sd, lw);
 
     // initialize size of cube to filter
-    double *h_in = in;
+    float *h_in = in;
     size_t plane_px = cube_y * cube_x;
     size_t total_cube_px = plane_px * cube_z;
-    long total_cube_bytes = total_cube_px * sizeof(double);
+    long total_cube_bytes = total_cube_px * sizeof(float);
 
     // determine how much memory is available for allocation on the device
     // and calculate how much z_height of the cube can fit into it
     size_t out_bytes = get_available_out_bytes();
-    size_t out_px = out_bytes / sizeof(double);
+    size_t out_px = out_bytes / sizeof(float);
     size_t z_height;
     if (total_cube_px > out_px) {
         z_height = (out_px - out_px % plane_px) / plane_px;
@@ -333,15 +332,15 @@ void gaussian_filter_1d(double *in, double *out, int cube_z, int cube_y, int cub
         z_height = total_cube_px / plane_px;
     }
     size_t allocate_px = z_height * plane_px;
-    size_t allocate_bytes = allocate_px * sizeof(double);
+    size_t allocate_bytes = allocate_px * sizeof(float);
 
     // memory allocation
-    double *d_in  = NULL;
-    double *d_out = NULL;
+    float *d_in  = NULL;
+    float *d_out = NULL;
     gpuErrchk( cudaMalloc(&d_in,  allocate_bytes) );
     gpuErrchk( cudaMalloc(&d_out, allocate_bytes) );
 
-    gpuErrchk( cudaMemcpyToSymbol(d_weights, h_weights, MAX_LW * sizeof(double)) );
+    gpuErrchk( cudaMemcpyToSymbol(d_weights, h_weights, MAX_LW * sizeof(float)) );
     gpuErrchk( cudaHostRegister(in, total_cube_bytes, 0) );
 
 
@@ -352,7 +351,7 @@ void gaussian_filter_1d(double *in, double *out, int cube_z, int cube_y, int cub
         if (offset + allocate_px > total_cube_px) {
             z_height = (total_cube_px - offset) / plane_px;
             allocate_px = z_height * plane_px;
-            allocate_bytes = allocate_px * sizeof(double);
+            allocate_bytes = allocate_px * sizeof(float);
         }
 
         gpuErrchk( cudaMemcpy(d_in, &h_in[offset], allocate_bytes, cudaMemcpyHostToDevice) );
@@ -379,7 +378,7 @@ void gaussian_filter_1d(double *in, double *out, int cube_z, int cube_y, int cub
 
 
 
-void gaussian_filter_GPU(double *in_cube, double *out_cube, int cube_z, int cube_y, int cube_x, int ky, int kx) {
+void gaussian_filter_GPU(float *in_cube, float *out_cube, int cube_z, int cube_y, int cube_x, int ky, int kx) {
 
     if (cube_z == 0 && cube_y == 0 && cube_x == 0) return;
 

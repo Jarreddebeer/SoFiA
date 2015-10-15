@@ -13,8 +13,8 @@ C = ffi.dlopen('./SCfinder_mem.so')
 
 def C_uniform_filter_cuda(ary, kernel):
     out = numpy.zeros((1, 1, 1)) # not used
-    ary_ptr = ffi.cast("double*", ary.ctypes.data)
-    out_ptr = ffi.cast("double*", out.ctypes.data)
+    ary_ptr = ffi.cast("float*", ary.ctypes.data)
+    out_ptr = ffi.cast("float*", out.ctypes.data)
     C.test_cuda_uniform(ary_ptr, out_ptr, ary.shape[0], ary.shape[1], ary.shape[2], kernel[2])
 
 
@@ -22,7 +22,7 @@ class TestCuda:
 
     def test_random_large(self):
 
-        ary = numpy.random.random((660, 320, 320)).astype(numpy.double)
+        ary = numpy.random.random((660, 320, 320)).astype(numpy.float32)
         # ary = numpy.array([
         #     [[1]],
         #     [[2]],
@@ -32,9 +32,9 @@ class TestCuda:
         #     [[6]],
         #     [[7]],
         #     [[8]],
-        # ]).astype(numpy.double)
+        # ]).astype(numpy.float32)
         kernel = numpy.array([0, 0, 3]) # [x, y, z]
-        ary_copy = numpy.array(ary)
+        ary_copy = numpy.array(ary).astype(numpy.float32)
 
         C_uniform_filter_cuda(ary, kernel)
         nmpy_out = ndimage.uniform_filter1d(ary_copy, kernel[2], axis=0, mode='constant')
@@ -71,8 +71,8 @@ class TestCuda:
         # for z in range(12):
         #     print 'z level:', z, 'cuda: ', ary[z][319][319], 'nmpy: ', nmpy_out[z][319][319], 'original: ', ary_copy[z][319][319]
 
-        # print assert_array_almost_equal(ary, nmpy_out, decimal=2)
+        print assert_array_almost_equal(ary, nmpy_out, decimal=2)
         # print assert_array_almost_equal([1], [2], decimal=2)
 
-tc = TestCuda()
-tc.test_random_large()
+# tc = TestCuda()
+# tc.test_random_large()

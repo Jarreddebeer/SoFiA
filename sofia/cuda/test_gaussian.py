@@ -16,8 +16,8 @@ C = ffi.dlopen('./SCfinder_mem.so')
 def C_gaussian_filter(ary, kernel):
     # out = numpy.array(ary)
     out = numpy.array((1, 1, 1))
-    ary_ptr = ffi.cast("double*", ary.ctypes.data)
-    out_ptr = ffi.cast("double*", out.ctypes.data)
+    ary_ptr = ffi.cast("float*", ary.ctypes.data)
+    out_ptr = ffi.cast("float*", out.ctypes.data)
     C.test_cuda(ary_ptr, out_ptr, ary.shape[0], ary.shape[1], ary.shape[2], kernel[1], kernel[0])
 
 '''
@@ -56,10 +56,10 @@ class TestGaussian:
              [7, 8, 9, 6],
              [2, 3, 4, 5]]
 
-        ], numpy.double)
+        ], numpy.float32)
 
         for kernel in kernels:
-            input_copy = numpy.array(input)
+            input_copy = numpy.array(input).astype(numpy.float32)
             kx = kernel[0] / 2.355
             ky = kernel[1] / 2.355
             kz = 0
@@ -72,7 +72,7 @@ class TestGaussian:
 
         kernels = [[ 0, 0, 0,98],[ 0, 0, 3,98],[ 0, 0, 7,98],[ 0, 0, 15,98],[ 3, 3, 0,98],[ 3, 3, 3,98],[ 3, 3, 7,98],[ 3, 3, 15,98],[ 6, 6, 0,98],[ 6, 6, 3,98],[ 6, 6, 7,98],[ 6, 6, 15,98]]
 
-        input = numpy.arange(10 * 50 * 50).astype(numpy.double)
+        input = numpy.arange(10 * 50 * 50).astype(numpy.float32)
         input.shape = (10, 50, 50)
 
         for kernel in kernels:
