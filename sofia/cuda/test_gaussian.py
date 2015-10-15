@@ -72,8 +72,8 @@ class TestGaussian:
 
         kernels = [[ 0, 0, 0,98],[ 0, 0, 3,98],[ 0, 0, 7,98],[ 0, 0, 15,98],[ 3, 3, 0,98],[ 3, 3, 3,98],[ 3, 3, 7,98],[ 3, 3, 15,98],[ 6, 6, 0,98],[ 6, 6, 3,98],[ 6, 6, 7,98],[ 6, 6, 15,98]]
 
-        input = numpy.arange(10 * 50 * 50).astype(numpy.float32)
-        input.shape = (10, 50, 50)
+        input = numpy.arange(13 * 50 * 50).astype(numpy.float32)
+        input.shape = (13, 50, 50)
 
         for kernel in kernels:
             input_copy = numpy.array(input)
@@ -83,3 +83,4 @@ class TestGaussian:
             output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], mode='constant', truncate=4)
             C_gaussian_filter(input_copy, kernel)
             assert_array_almost_equal(output, input_copy, decimal=2)
+

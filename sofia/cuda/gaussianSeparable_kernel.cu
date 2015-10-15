@@ -84,7 +84,7 @@ __device__ float convolve_1d_gpu_kernel_optimised(float *subcube, int sidx, int 
 
 
 
-__global__ void gaussian_filter_1d_gpu_kernel_optimised(float *d_in_cube, float *d_out_cube, size_t allocate_px, int lw, int stride, int cube_y, int cube_x) {
+__global__ void gaussian_filter_1d_gpu_kernel_optimised(float *d_in_cube, float *d_out_cube, size_t allocate_px, int lw, int stride, int cube_y, int cube_x, int stream_offset) {
 
     int tx, ty, sx, sy, x, y, sidx, sstride, cube_idx, t, ct, end;
     extern __shared__ float subcube[];
@@ -94,7 +94,7 @@ __global__ void gaussian_filter_1d_gpu_kernel_optimised(float *d_in_cube, float 
     sstride = BLOCKSIZE + 2 * lw;
     x = blockDim.x * blockIdx.x + tx;
     y = blockDim.y * blockIdx.y + ty;
-    cube_idx = (blockIdx.z * cube_x * cube_y) + (y * cube_x) + x;
+    cube_idx = stream_offset + (blockIdx.z * cube_x * cube_y) + (y * cube_x) + x;
 
     // if stride == cube_x then we are filtering along y. so load the data into shared memory contiguously for processing
     if (stride == cube_x) {
@@ -343,10 +343,19 @@ void gaussian_filter_1d(float *in, float *out, int cube_z, int cube_y, int cube_
     gpuErrchk( cudaMemcpyToSymbol(d_weights, h_weights, MAX_LW * sizeof(float)) );
     gpuErrchk( cudaHostRegister(in, total_cube_bytes, 0) );
 
+    int num_streams = 5;
+    cudaStream_t* stream = (cudaStream_t*) malloc(num_streams * sizeof(cudaStream_t) );
+    for (int i = 0; i < num_streams; i++) {
+        cudaStreamCreate(&stream[i]);
+    }
 
     // process the cube in parts on the GPU
     size_t offset = 0;
     for (; offset < total_cube_px; offset += allocate_px) {
+
+        for (int i = 0; i < num_streams; i++) {
+            gpuErrchk( cudaStreamCreate(&stream[i]) );
+        }
 
         if (offset + allocate_px > total_cube_px) {
             z_height = (total_cube_px - offset) / plane_px;
@@ -354,17 +363,80 @@ void gaussian_filter_1d(float *in, float *out, int cube_z, int cube_y, int cube_
             allocate_bytes = allocate_px * sizeof(float);
         }
 
-        gpuErrchk( cudaMemcpy(d_in, &h_in[offset], allocate_bytes, cudaMemcpyHostToDevice) );
-        dim3 dimBlock = dim3(BLOCKSIZE, BLOCKSIZE, 1);
-        dim3 dimGrid = dim3(
-            ceil( ((int) cube_x)   / (float) dimBlock.x),
-            ceil( ((int) cube_y)   / (float) dimBlock.y),
-            ceil( ((int) z_height) / (float) dimBlock.z)
-        );
-        // gaussian_filter_1d_gpu_kernel<<<dimGrid, dimBlock, sm_bytes>>>(d_in, d_out, allocate_px, lw, stride, cube_y, cube_x);
-        gaussian_filter_1d_gpu_kernel_optimised<<<dimGrid, dimBlock, sm_bytes_optimised>>>(d_in, d_out, allocate_px, lw, stride, cube_y, cube_x);
-        gpuErrchk( cudaPeekAtLastError() );
-        gpuErrchk( cudaMemcpy(&h_in[offset], d_out, allocate_bytes, cudaMemcpyDeviceToHost) );
+        // copy memory asynchronously h -> d
+        int z_height_stream_reset = ceil( z_height / (float)num_streams);
+        int z_height_stream = z_height_stream_reset;
+        int stream_size = z_height_stream * plane_px;
+        int stream_size_bytes = stream_size * sizeof(float);
+
+        for (int i = 0; i < num_streams; i++) {
+
+            // must calculate offset before we clip stream_size on the last iteration
+            int stream_offset = i * stream_size;
+
+            if (i == num_streams - 1) {
+                z_height_stream = z_height - i * z_height_stream;
+                if (z_height_stream == 0) break;
+                stream_size = z_height_stream * plane_px;
+                stream_size_bytes = stream_size * sizeof(float);
+            }
+
+            gpuErrchk( cudaMemcpyAsync(&d_in[stream_offset], &h_in[offset + stream_offset], stream_size_bytes, cudaMemcpyHostToDevice, stream[i]) );
+        }
+
+        // execute kernel asynchronously
+        z_height_stream = z_height_stream_reset;
+        stream_size = z_height_stream * plane_px;
+        stream_size_bytes = stream_size * sizeof(float);
+
+        for (int i = 0; i < num_streams; i++) {
+
+            // must calculate offset before we clip stream_size on the last iteration
+            int stream_offset = i * stream_size;
+
+            if (i == num_streams - 1) {
+                z_height_stream = z_height - i * z_height_stream;
+                if (z_height_stream == 0) break;
+                stream_size = z_height_stream * plane_px;
+                stream_size_bytes = stream_size * sizeof(float);
+            }
+
+            dim3 dimBlock = dim3(BLOCKSIZE, BLOCKSIZE, 1);
+            dim3 dimGrid = dim3(
+                ceil( ((int) cube_x) / (float) dimBlock.x),
+                ceil( ((int) cube_y) / (float) dimBlock.y),
+                ceil( ((int) z_height_stream) / (float) dimBlock.z)
+            );
+
+            gaussian_filter_1d_gpu_kernel_optimised<<<dimGrid, dimBlock, sm_bytes_optimised, stream[i]>>>(d_in, d_out, allocate_px, lw, stride, cube_y, cube_x, stream_offset);
+            gpuErrchk( cudaPeekAtLastError() );
+        }
+
+
+        // copy back memory asynchronously d -> h
+        z_height_stream = z_height_stream_reset;
+        stream_size = z_height_stream * plane_px;
+        stream_size_bytes = stream_size * sizeof(float);
+
+        for (int i = 0; i < num_streams; i++) {
+
+            // must calculate offset before we clip stream_size on the last iteration
+            int stream_offset = i * stream_size;
+
+            if (i == num_streams - 1) {
+                z_height_stream = z_height - i * z_height_stream;
+                if (z_height_stream == 0) break;
+                stream_size = z_height_stream * plane_px;
+                stream_size_bytes = stream_size * sizeof(float);
+            }
+
+            gpuErrchk( cudaMemcpyAsync(&h_in[offset + stream_offset], &d_out[stream_offset], stream_size_bytes, cudaMemcpyDeviceToHost, stream[i]) );
+        }
+
+
+        for (int i = 0; i < num_streams; i++) {
+            gpuErrchk( cudaStreamDestroy(stream[i]) );
+        }
 
     }
 
