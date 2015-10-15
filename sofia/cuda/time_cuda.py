@@ -93,7 +93,7 @@ for t in range(len(kernel_sizes)):
     for r in range(5):
 
         # data cube sizes are multiples of 32
-        for w in range(0, 65, 32):
+        for w in range(0, 321, 32):
 
             h = w * 2
             print 'generating data of size (', h, w, w, ')'

@@ -6,7 +6,7 @@ extern "C" {
 #include "gaussianSeparable_kernel.h"
 }
 
-#define BLOCKSIZE 16
+#define BLOCKSIZE 32
 #define MAX_LW 257 // CONSTRAINT: max size of lw (window) is 256
 __device__ __constant__ double d_weights[MAX_LW];
 
@@ -58,6 +58,112 @@ extern "C" double* init_out_cube(size_t cube_z, size_t cube_y, size_t cube_x) {
 }
 
 
+
+
+
+
+
+__device__ double convolve_1d_gpu_kernel_optimised(double *subcube, int sidx, int lw) {
+
+    double sum = d_weights[lw] * subcube[sidx];
+    double lo_val, hi_val, weight;
+
+    for (int i = 1; i <= lw; i++) {
+        weight = d_weights[lw + i];
+        lo_val = subcube[sidx - i];
+        hi_val = subcube[sidx + i];
+        sum += weight * (lo_val + hi_val);
+    }
+
+    return sum;
+}
+
+
+
+
+
+
+
+__global__ void gaussian_filter_1d_gpu_kernel_optimised(double *d_in_cube, double *d_out_cube, size_t allocate_px, int lw, int stride, int cube_y, int cube_x) {
+
+    int tx, ty, sx, sy, x, y, sidx, sstride, cube_idx, t, ct, end;
+    extern __shared__ double subcube[];
+
+    tx = threadIdx.x;
+    ty = threadIdx.y;
+    sstride = BLOCKSIZE + 2 * lw;
+    x = blockDim.x * blockIdx.x + tx;
+    y = blockDim.y * blockIdx.y + ty;
+    cube_idx = (blockIdx.z * cube_x * cube_y) + (y * cube_x) + x;
+
+    // if stride == cube_x then we are filtering along y. so load the data into shared memory contiguously for processing
+    if (stride == cube_x) {
+        t = ty;
+        ct = y;
+        end = cube_y;
+        sx = tx;
+        sy = lw + ty;
+        sidx = sx * sstride + sy;
+    } else {
+        t = tx;
+        ct = x;
+        end = cube_x;
+        sx = lw + tx;
+        sy = ty;
+        sidx = sy * sstride + sx;
+    }
+
+    // copy pixel into subcube shared memory
+    ////////////////////////////////////////
+
+    if (x >= cube_x || y >= cube_y) {
+        subcube[sidx] = 0;
+    } else {
+        subcube[sidx] = d_in_cube[cube_idx];
+    }
+
+    // copy window into shared memory
+    ////////////////////////////////////
+
+    // padding
+    if (t == 0) { // left boundary
+        if (ct == 0) { // cube hard boundary, pad with zero
+            for (int i = 1; i <= lw; i++) {
+                subcube[sidx - i] = 0;
+            }
+        } else { // soft boundary, pad from cube pixels
+            for (int i = 1; i <= lw; i++) {
+                subcube[sidx - i] = d_in_cube[cube_idx - i * stride];
+            }
+        }
+
+    } else if (t == BLOCKSIZE - 1) { // right boundary
+        if (ct == end - 1) { // cube hard boundary, pad with zero
+            for (int i = 1; i <= lw; i++) {
+                subcube[sidx + i] = 0;
+            }
+        } else { // soft boundary, pad from cube pixels
+            for (int i = 1; i <= lw; i++) {
+                if (ct + i < end) { // the window column might be thicker than the remaining columns in the cube
+                    subcube[sidx + i] = d_in_cube[cube_idx + i * stride];
+                } else {
+                    subcube[sidx + i] = 0;
+                }
+            }
+        }
+    }
+
+    __syncthreads();
+
+    // perform convolution
+    //////////////////////
+
+    if (x < cube_x && y < cube_y && cube_idx < allocate_px) {
+        d_out_cube[cube_idx] = convolve_1d_gpu_kernel_optimised(subcube, sidx, lw);
+    }
+
+}
+
 __device__ double convolve_1d_gpu_kernel(double *subcube, int sidx, int lw, int sstride) {
 
     double sum = d_weights[lw] * subcube[sidx];
@@ -72,7 +178,6 @@ __device__ double convolve_1d_gpu_kernel(double *subcube, int sidx, int lw, int 
 
     return sum;
 }
-
 
 __global__ void gaussian_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_cube, size_t allocate_px, int lw, int stride, int cube_y, int cube_x) {
 
@@ -159,37 +264,6 @@ __global__ void gaussian_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_c
         }
     }
 
-    // corner cases ... WHY DO WE NEED THESE? TAKE OUT I THINK. TODO: remove
-    /*
-
-    if (tx == 0 && ty == 0) { // TL
-        for (int i = 0; i < lw; i++) {
-            for (int j = 0; j < lw; j++) {
-                subcube[i * sstride + j] = 0;
-            }
-        }
-
-    } else if (tx == blockDim.x - 1 && ty == blockDim.y - 1) { // BR
-        for (int i = lw + blockDim.y; i < lw + blockDim.y + lw; i++) {
-            for (int j = lw + blockDim.x; j < lw + blockDim.x + lw; j++) {
-                subcube[i * sstride + j] = 0;
-            }
-        }
-    } else if (tx == 0 && ty == blockDim.y - 1) { // BL
-        for (int i = lw + blockDim.y; i < lw + blockDim.y + lw; i++) {
-            for (int j = 0; j < lw; j++) {
-                subcube[i * sstride + j] = 0;
-            }
-        }
-
-    } else if (tx == blockDim.x - 1 && ty == 0) { // TR
-        for (int i = 0; i < lw; i++) {
-            for (int j = lw + blockDim.x; j < lw + blockDim.x + lw; j++) {
-                subcube[i * sstride + j] = 0;
-            }
-        }
-    }
-    */
 
     __syncthreads();
 
@@ -206,9 +280,6 @@ __global__ void gaussian_filter_1d_gpu_kernel(double *d_in_cube, double *d_out_c
     }
 
 }
-
-
-
 
 double* generate_weights(double sd, int lw) {
     double *h_weights    = (double *) malloc(sizeof(double) * MAX_LW);
@@ -240,7 +311,9 @@ void gaussian_filter_1d(double *in, double *out, int cube_z, int cube_y, int cub
     // initialize gaussian filter weights
     double sd = ((double) ks) / 2.355;
     int lw = (int) (sd * 4 + 0.5);
-    int sm_bytes = (BLOCKSIZE + 2 * lw) * (BLOCKSIZE + 2 * lw) * sizeof(double);
+    // note: the unoptimised kernel cannot run with the optimised sm_bytes setting, I don't think.
+    // int sm_bytes        = (BLOCKSIZE + 2 * lw) * (BLOCKSIZE + 2 * lw) * sizeof(double);
+    int sm_bytes_optimised = (BLOCKSIZE) * (BLOCKSIZE + 2 * lw) * sizeof(double);
     double* h_weights = generate_weights(sd, lw);
 
     // initialize size of cube to filter
@@ -289,7 +362,8 @@ void gaussian_filter_1d(double *in, double *out, int cube_z, int cube_y, int cub
             ceil( ((int) cube_y)   / (float) dimBlock.y),
             ceil( ((int) z_height) / (float) dimBlock.z)
         );
-        gaussian_filter_1d_gpu_kernel<<<dimGrid, dimBlock, sm_bytes>>>(d_in, d_out, allocate_px, lw, stride, cube_y, cube_x);
+        // gaussian_filter_1d_gpu_kernel<<<dimGrid, dimBlock, sm_bytes>>>(d_in, d_out, allocate_px, lw, stride, cube_y, cube_x);
+        gaussian_filter_1d_gpu_kernel_optimised<<<dimGrid, dimBlock, sm_bytes_optimised>>>(d_in, d_out, allocate_px, lw, stride, cube_y, cube_x);
         gpuErrchk( cudaPeekAtLastError() );
         gpuErrchk( cudaMemcpy(&h_in[offset], d_out, allocate_bytes, cudaMemcpyDeviceToHost) );
 
