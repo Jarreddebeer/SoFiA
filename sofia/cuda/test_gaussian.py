@@ -28,12 +28,25 @@ def C_SCfinder_mem(cube, kernels):
     C.SCfinder_mem(cube_ptr, cube.shape[0], cube.shape[1], cube.shape[2], kernel_ptr, len(kernels))
 '''
 
+def print_cube_diff(ary1, ary2):
+    # for z in range(ary.shape[0]):
+    for z in range(ary1.shape[0]):
+        for y in range(ary1.shape[1]):
+            for x in range(ary1.shape[2]):
+                if ( abs(ary1[z][y][x] - ary2[z][y][x]) < 0.000001 ):
+                    print 0,
+                else:
+                    print 1,
+            print
+        print
+        print
+    print
+
 class TestGaussian:
 
     def test_array_3x1(self):
 
-        # kernels = [[0, 0, 0, 98], [1, 0, 0, 98], [0, 1, 0, 98], [1, 1, 0, 98], [2, 1, 0, 98], [1, 2, 0, 98], [2, 2, 0, 98]]
-        kernels = [[1, 0, 0, 98]]
+        kernels = [[0, 0, 0, 98], [1, 0, 0, 98], [0, 1, 0, 98], [1, 1, 0, 98], [2, 1, 0, 98], [1, 2, 0, 98], [2, 2, 0, 98]]
 
         input = numpy.array([
             [[1, 2, 3, 4],
@@ -70,10 +83,10 @@ class TestGaussian:
 
     def test_array_nxn(self):
 
-        kernels = [[ 0, 0, 0,98],[ 0, 0, 3,98],[ 0, 0, 7,98],[ 0, 0, 15,98],[ 3, 3, 0,98],[ 3, 3, 3,98],[ 3, 3, 7,98],[ 3, 3, 15,98],[ 6, 6, 0,98],[ 6, 6, 3,98],[ 6, 6, 7,98],[ 6, 6, 15,98]]
+        # kernels = [[ 0, 0, 0,98],[ 0, 0, 3,98],[ 0, 0, 7,98],[ 0, 0, 15,98],[ 3, 3, 0,98],[ 3, 3, 3,98],[ 3, 3, 7,98],[ 3, 3, 15,98],[ 6, 6, 0,98],[ 6, 6, 3,98],[ 6, 6, 7,98],[ 6, 6, 15,98]]
+        kernels = [[1, 0, 0, 98]]
 
-        input = numpy.arange(13 * 50 * 50).astype(numpy.float32)
-        input.shape = (13, 50, 50)
+        input = numpy.random.random( (1, 32, 32) ).astype(numpy.float32)
 
         for kernel in kernels:
             input_copy = numpy.array(input)
@@ -82,5 +95,11 @@ class TestGaussian:
             kz = 0
             output = ndimage.gaussian_filter(input_copy, [kz, ky, kx], mode='constant', truncate=4)
             C_gaussian_filter(input_copy, kernel)
+
+            print_cube_diff(output, input_copy)
+
+
             assert_array_almost_equal(output, input_copy, decimal=2)
 
+asdf = TestGaussian()
+asdf.test_array_nxn()
