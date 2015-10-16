@@ -56,16 +56,16 @@ def C_gaussian_filter_omp(ary, kernel):
 # ====================
 # Program logic (main)
 # ====================
-y_label = 'Time (s)'
+y_label = 'speedup'
 x_label = 'Data width (px)'
 
-gaussian_pic_orig = TikzPicture('gaussian_original', 'Original gaussian runtime', x_label, y_label)
-gaussian_pic_omp  = TikzPicture('gaussian_omp',      'OMP Gaussian runtime', x_label, y_label)
-gaussian_pic_cuda = TikzPicture('gaussian_cuda',     'CUDA Gaussian runtime', x_label, y_label)
+# gaussian_pic_orig = TikzPicture('gaussian_original', 'Original gaussian runtime', x_label, y_label)
+gaussian_pic_omp  = TikzPicture('gaussian_omp',      'OMP Gaussian speedup', x_label, y_label)
+gaussian_pic_cuda = TikzPicture('gaussian_cuda',     'CUDA Gaussian speedup', x_label, y_label)
 
-uniform_pic_orig  = TikzPicture('uniform_original', 'Original Uniform runtime' , x_label, y_label)
-uniform_pic_omp   = TikzPicture('uniform_omp',      'OMP Uniform runtime' , x_label, y_label)
-uniform_pic_cuda  = TikzPicture('uniform_cuda',     'CUDA Uniform runtime' , x_label, y_label)
+# uniform_pic_orig  = TikzPicture('uniform_original', 'Original Uniform runtime' , x_label, y_label)
+uniform_pic_omp   = TikzPicture('uniform_omp',      'OMP Uniform speedup' , x_label, y_label)
+uniform_pic_cuda  = TikzPicture('uniform_cuda',     'CUDA Uniform speedup' , x_label, y_label)
 
 # kernel sizes
 kernel_sizes  = [1, 3, 6, 15]
@@ -81,11 +81,11 @@ for t in range(len(kernel_sizes)):
 
     print 'running kernel ', kernel, '...'
 
-    g_plot_orig = TikzPlot(ks, col, mark)
+    # g_plot_orig = TikzPlot(ks, col, mark)
     g_plot_omp  = TikzPlot(ks, col, mark)
     g_plot_cuda = TikzPlot(ks, col, mark)
 
-    u_plot_orig = TikzPlot(ks, col, mark)
+    # u_plot_orig = TikzPlot(ks, col, mark)
     u_plot_omp  = TikzPlot(ks, col, mark)
     u_plot_cuda = TikzPlot(ks, col, mark)
 
@@ -108,22 +108,25 @@ for t in range(len(kernel_sizes)):
             print 'original...'
             gs = time()
             ndimage.gaussian_filter(data, [ks/2.355, ks/2.355, 0], mode='constant', truncate=4)
-            g_plot_orig.add_point(w, time() - gs)
-            print 'original ran in', time() - gs
+            # g_plot_orig.add_point(w, time() - gs)
+            orig_time = time() - gs
+            print 'original ran in', orig_time
 
             # omp
             print 'omp...'
             gs = time()
             C_gaussian_filter_omp(data, kernel)
-            g_plot_omp.add_point(w, time() - gs)
-            print 'omp ran in', time() - gs
+            omp_speedup = (time() - gs) / orig_time
+            g_plot_omp.add_point(w, omp_speedup)
+            print 'omp speedup', omp_speedup
 
             # cuda
             print 'cuda...'
             gs = time()
             C_gaussian_filter_cuda(data, kernel)
-            g_plot_cuda.add_point(w, time() - gs)
-            print 'cuda ran in', time() - gs
+            cuda_speedup = time() - gs / orig_time
+            g_plot_cuda.add_point(w, cuda_speedup)
+            print 'cuda speedup', cuda_speedup
 
             # ------------
             # time uniform
@@ -134,40 +137,43 @@ for t in range(len(kernel_sizes)):
             print 'original...'
             us = time()
             ndimage.uniform_filter1d(data, ks, axis=0, mode='constant')
-            u_plot_orig.add_point(w, time() - us)
-            print 'original ran in', time() - us
+            # u_plot_orig.add_point(w, time() - us)
+            orig_time = time() - us
+            print 'original time', orig_time
 
             # omp
             print 'omp...'
             us = time()
             C_uniform_filter_omp(data, kernel)
-            u_plot_omp.add_point(w, time() - us)
-            print 'omp ran in', time() - us
+            omp_speedup = (time() - us) / orig_time
+            u_plot_omp.add_point(w, omp_speedup)
+            print 'omp speedup', time() - us
 
             # cuda
             print 'cuda...'
             us = time()
             C_uniform_filter_cuda(data, kernel)
-            u_plot_cuda.add_point(w, time() - us)
-            print 'cuda ran in', time() - us
+            cuda_speedup = (time() - us) / orig_time
+            u_plot_cuda.add_point(w, cuda_speedup)
+            print 'cuda speedup', cuda_speedup
 
 
-    gaussian_pic_orig.add_plot(g_plot_orig)
+    # gaussian_pic_orig.add_plot(g_plot_orig)
     gaussian_pic_omp.add_plot(g_plot_omp)
     gaussian_pic_cuda.add_plot(g_plot_cuda)
 
-    uniform_pic_orig.add_plot(u_plot_orig)
+    # uniform_pic_orig.add_plot(u_plot_orig)
     uniform_pic_omp.add_plot(u_plot_omp)
     uniform_pic_cuda.add_plot(u_plot_cuda)
 
 print 'finished timings.'
 
 print 'generating output...'
-gaussian_pic_orig.generate()
+# gaussian_pic_orig.generate()
 gaussian_pic_omp.generate()
 gaussian_pic_cuda.generate()
 
-uniform_pic_orig.generate()
+# uniform_pic_orig.generate()
 uniform_pic_omp.generate()
 uniform_pic_cuda.generate()
 print 'done.'
