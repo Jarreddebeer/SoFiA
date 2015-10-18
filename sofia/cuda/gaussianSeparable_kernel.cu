@@ -6,7 +6,7 @@ extern "C" {
 #include "gaussianSeparable_kernel.h"
 }
 
-#define BLOCKSIZE 8
+#define BLOCKSIZE 16
 #define MAX_LW 257 // CONSTRAINT: max size of lw (window) is 256
 __device__ __constant__ float d_weights[MAX_LW];
 
@@ -145,25 +145,27 @@ __global__ void gaussian_filter_1d_gpu_kernel_optimised(float *d_in_cube, float 
         }
 
     } else if (t == BLOCKSIZE - 1) { // right boundary
-        if (ct == end - 1) { // cube hard boundary, pad with zero
+        if ( (ct+ppt-1) == end - 1) { // cube hard boundary, pad with zero
             for (int i = 1; i <= lw; i++) {
-                subcube[sidx + i] = 0;
+                subcube[sidx + ppt-1 + i] = 0;
             }
         } else { // soft boundary, pad from cube pixels
             for (int i = 1; i <= lw; i++) {
-                if (ct + i < end) { // the window column might be thicker than the remaining columns in the cube
-                    subcube[sidx + i] = d_in_cube[cube_idx + i * stride];
-//                } else {
-//                    subcube[sidx + i] = 0;
+                if ( (ct+ppt-1) + i < end) { // the window column might be thicker than the remaining columns in the cube
+                    subcube[sidx + ppt-1 + i] = d_in_cube[cube_idx + (ppt-1 + i) * stride];
+                } else {
+                    subcube[sidx + ppt-1 + i] = 0;
                 }
             }
         }
     }
 
 
+    /*
     __syncthreads();
 
     if (x == 0 && y == 0) {
+        printf("end: %d\n", end);
         printf("----------\n");
         for (int i = 0; i < BLOCKSIZE; i++) {
             for (int j = 0; j < BLOCKSIZE * ppt + 2 * lw; j++) {
@@ -174,6 +176,7 @@ __global__ void gaussian_filter_1d_gpu_kernel_optimised(float *d_in_cube, float 
         printf("----------\n");
         printf("\n");
     }
+    */
 
     __syncthreads();
 
@@ -185,8 +188,6 @@ __global__ void gaussian_filter_1d_gpu_kernel_optimised(float *d_in_cube, float 
             d_out_cube[cube_idx + i * stride] = convolve_1d_gpu_kernel_optimised(subcube, sidx + i, lw);
         }
     }
-
-    __syncthreads();
 
 }
 
@@ -338,7 +339,7 @@ void gaussian_filter_1d(float *in, float *out, int cube_z, int cube_y, int cube_
     float sd = ((float) ks) / 2.355;
     int lw = (int) (sd * 4 + 0.5);
 
-    int ppt = 2; // pixels per thread
+    int ppt = 4; // pixels per thread
     int sm_bytes_optimised = (BLOCKSIZE) * (ppt * BLOCKSIZE + 2 * lw) * sizeof(float);
     float* h_weights = generate_weights(sd, lw);
 
@@ -370,7 +371,12 @@ void gaussian_filter_1d(float *in, float *out, int cube_z, int cube_y, int cube_
     gpuErrchk( cudaMemcpyToSymbol(d_weights, h_weights, MAX_LW * sizeof(float)) );
     gpuErrchk( cudaHostRegister(in, total_cube_bytes, 0) );
 
-    int num_streams = 1;
+    int num_streams;
+    if (z_height > 2) {
+        num_streams = 2;
+    } else {
+        num_streams = 1;
+    }
     cudaStream_t* stream = (cudaStream_t*) malloc(num_streams * sizeof(cudaStream_t) );
     for (int i = 0; i < num_streams; i++) {
         cudaStreamCreate(&stream[i]);
@@ -379,8 +385,6 @@ void gaussian_filter_1d(float *in, float *out, int cube_z, int cube_y, int cube_
     // process the cube in parts on the GPU
     size_t offset = 0;
     for (; offset < total_cube_px; offset += allocate_px) {
-
-        printf("ITERATION\n");
 
         for (int i = 0; i < num_streams; i++) {
             gpuErrchk( cudaStreamCreate(&stream[i]) );
@@ -418,7 +422,6 @@ void gaussian_filter_1d(float *in, float *out, int cube_z, int cube_y, int cube_
         stream_size = z_height_stream * plane_px;
         stream_size_bytes = stream_size * sizeof(float);
 
-
         for (int i = 0; i < num_streams; i++) {
 
             // must calculate offset before we clip stream_size on the last iteration
@@ -446,7 +449,7 @@ void gaussian_filter_1d(float *in, float *out, int cube_z, int cube_y, int cube_
                     ceil( ((int) z_height_stream) / (float) dimBlock.z)
                 );
             }
-            printf("dimGrid.x: %d, dimGrid.y: %d. dimBlock.x: %d, dimBlock.y: %d\n", dimGrid.x, dimGrid.y, dimBlock.x, dimBlock.y);
+            // printf("dimGrid.x: %d, dimGrid.y: %d. dimBlock.x: %d, dimBlock.y: %d\n", dimGrid.x, dimGrid.y, dimBlock.x, dimBlock.y);
             gaussian_filter_1d_gpu_kernel_optimised<<<dimGrid, dimBlock, sm_bytes_optimised, stream[i]>>>(d_in, d_out, allocate_px, lw, stride, cube_y, cube_x, stream_offset, ppt);
             gpuErrchk( cudaPeekAtLastError() );
         }
@@ -472,6 +475,7 @@ void gaussian_filter_1d(float *in, float *out, int cube_z, int cube_y, int cube_
             gpuErrchk( cudaMemcpyAsync(&h_in[offset + stream_offset], &d_out[stream_offset], stream_size_bytes, cudaMemcpyDeviceToHost, stream[i]) );
         }
 
+        gpuErrchk( cudaDeviceSynchronize() );
 
         for (int i = 0; i < num_streams; i++) {
             gpuErrchk( cudaStreamDestroy(stream[i]) );

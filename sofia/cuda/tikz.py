@@ -28,7 +28,7 @@ class TikzPicture:
     def _print_header(self):
         xmax = self._get_max('x')
         ymax = self._get_max('y')
-        xticks = range(0, xmax+1, 32)
+        xticks = range(0, xmax+1, 124)
         print '\\begin{tikzpicture}'
         print '\\begin{axis}['
         print '    title={' + self.title + '},'
@@ -52,6 +52,7 @@ class TikzPicture:
         print '\\addplot['
         print '    color=' + plot.color + ','
         print '    mark=' + plot.mark + ','
+        print '    mark size=1.4'
         print '    ]'
         print '    coordinates {'
         print '        ',
