@@ -279,14 +279,22 @@ void SCfinder_mem(float *in_cube, size_t cube_z, size_t cube_y, size_t cube_x, i
         // gaussian_filter(in_cube, out_cube, cube_z, cube_y, cube_x, ky, kx);
         gaussian_filter_GPU(in_cube, out_cube, cube_z, cube_y, cube_x, ky, kx);
         gettimeofday(&tv2, NULL);
-        // printf("time spent on gaussian filter: %f\n", get_time(tv1, tv2));
+        printf("time spent on gaussian filter: %f\n", get_time(tv1, tv2));
     }
     if (kz > 0) {
         gettimeofday(&tv1, NULL);
-        uniform_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, kz);
+        // uniform_filter_1d(in_cube, out_cube, cube_z, cube_y, cube_x, kz);
+        uniform_filter_1d_GPU(
+            in_cube,
+            out_cube,
+            cube_z,
+            cube_y,
+            cube_x,
+            kz
+        );
         gettimeofday(&tv2, NULL);
-        // printf("time spent on uniform filter: %f\n", get_time(tv1, tv2));
-        copy3d(in_cube, out_cube, cube_z, cube_y, cube_x);
+        printf("time spent on uniform filter: %f\n", get_time(tv1, tv2));
+        // copy3d(in_cube, out_cube, cube_z, cube_y, cube_x);
     }
 
     free(out_cube);

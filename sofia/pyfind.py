@@ -55,7 +55,7 @@ def SortKernels(kernels):
 
 def C_SCfinder_mem(cube, kernel):
     kernel = np.array(kernel, dtype='int32')
-    cube_ptr = ffi.cast("double*", cube.ctypes.data)
+    cube_ptr = ffi.cast("float*", cube.ctypes.data)
     kernel_ptr = ffi.cast("int*", kernel.ctypes.data)
     C.SCfinder_mem(cube_ptr, cube.shape[0], cube.shape[1], cube.shape[2], kernel_ptr)
 
